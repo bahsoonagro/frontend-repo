@@ -1,22 +1,37 @@
-import React from 'react';
-import ProductList from './ProductList';
-import StockIn from './StockIn';
-import StockOut from './StockOut';
-import VendorList from './VendorList';
-import Reports from './Reports'; // Optional, only if implemented
+import React, { useState } from 'react';
 
-const Dashboard = () => {
+import DispatchDelivery from './DispatchDelivery';
+import StockMovements from './StockMovements';
+import Reports from './Reports';
+// Add other components...
+
+const TABS = {
+  Dispatch: <DispatchDelivery />,
+  'Stock Movements': <StockMovements />,
+  Reports: <Reports />,
+};
+
+const StockManagement = () => {
+  const [activeTab, setActiveTab] = useState('Dispatch');
+
   return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-xl font-bold">Stock Dashboard</h2>
-      <ProductList />
-      <StockIn />
-      <StockOut />
-      <VendorList />
-      {/* <Reports /> */}
+    <div>
+      <div className="flex space-x-4 border-b mb-4">
+        {Object.keys(TABS).map((tab) => (
+          <button
+            key={tab}
+            className={`px-4 py-2 ${activeTab === tab ? 'border-b-2 border-blue-500 font-bold' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div>{TABS[activeTab]}</div>
     </div>
   );
 };
 
-export default Dashboard;
+export default StockManagement;
 

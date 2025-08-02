@@ -1,40 +1,9 @@
-// src/components/stock/StockOut.jsx
-import React, { useState } from 'react';
+// Dashboard.jsx
+import React from 'react';
 
-const StockOut = () => {
-  const [formData, setFormData] = useState({ name: '', quantity: '' });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert(`Stocked Out: ${formData.quantity} units of ${formData.name}`);
-    setFormData({ name: '', quantity: '' });
-  };
-
-  return (
-    <div className="bg-white p-4 rounded shadow">
-      <h3 className="text-lg font-bold mb-2">Stock Out</h3>
-      <form onSubmit={handleSubmit} className="space-y-2">
-        <input
-          type="text"
-          placeholder="Product Name"
-          value={formData.name}
-          onChange={e => setFormData({ ...formData, name: e.target.value })}
-          className="border p-2 w-full"
-        />
-        <input
-          type="number"
-          placeholder="Quantity"
-          value={formData.quantity}
-          onChange={e => setFormData({ ...formData, quantity: e.target.value })}
-          className="border p-2 w-full"
-        />
-        <button type="submit" className="bg-red-500 text-white px-4 py-2 rounded">
-          Remove Stock
-        </button>
-      </form>
-    </div>
-  );
+const Dashboard = () => {
+  return <div className="bg-white shadow p-4 rounded">Dashboard Overview</div>;
 };
 
-export default StockOut;
+export default Dashboard;
 
