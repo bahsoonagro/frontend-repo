@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 
-const BACKEND_URL = 'http://localhost:5000'; // change to your backend URL
+const BACKEND_URL = 'https://backend-repo-6bhr.onrender.com'; // change to your backend URL
+const res = await fetch(`${BACKEND_URL}/api/raw-materials/bulk-upload`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(bulkRecords),
+});
+const res = await fetch(`${BACKEND_URL}/api/raw-materials`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(formData),
+});
 
 const RawMaterials = () => {
   const [records, setRecords] = useState([]);

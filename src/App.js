@@ -19,9 +19,17 @@ const tabs = [
   { id: 'reports', label: 'Reports', component: Reports },
 ];
 
-const API_URL = 'http://localhost:3001/api/raw-materials';
+const API_URL = 'https://backend-repo-6bhr.onrender.com';
 
+const cors = require('cors');
+app.use(cors());
 
+useEffect(() => {
+  fetch(`${BACKEND_URL}/api/ping`)
+    .then(res => res.text())
+    .then(console.log) // should log "pong"
+    .catch(err => console.error('Backend unreachable:', err));
+}, []);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
