@@ -14,6 +14,8 @@ const RawMaterials = () => {
     totalStockBalance: '',
   });
 
+  const [openAccordions, setOpenAccordions] = useState({}); // track open/close state
+
   const printRef = useRef();
 
   const handleInputChange = (e) => {
@@ -120,6 +122,20 @@ const RawMaterials = () => {
     window.print();
     document.body.innerHTML = originalContents;
     window.location.reload();
+  };
+
+  // Group records by material
+  const groupedRecords = records.reduce((acc, rec) => {
+    if (!acc[rec.material]) acc[rec.material] = [];
+    acc[rec.material].push(rec);
+    return acc;
+  }, {});
+
+  const toggleAccordion = (material) => {
+    setOpenAccordions(prev => ({
+      ...prev,
+      [material]: !prev[material]
+    }));
   };
 
   return (
@@ -239,47 +255,58 @@ const RawMaterials = () => {
         </button>
       </div>
 
-      {/* Records Table */}
-      <div ref={printRef} className="overflow-x-auto border border-gray-300 rounded-lg shadow-sm">
-        <table className="min-w-full table-auto border-collapse">
-          <thead className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-            <tr>
-              {['Material', 'Month', 'Opening Balance', 'New Stock In', 'Total Stock In', 'Total Stock Out', 'Total Stock Balance'].map((header) => (
-                <th
-                  key={header}
-                  className="border border-gray-300 px-4 py-3 text-left tracking-wide"
-                >
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {records.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="text-center p-6 text-gray-500 italic">
-                  No records yet.
-                </td>
-              </tr>
-            ) : (
-              records.map((rec, i) => (
-                <tr
-                  key={i}
-                  className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                  title={`Record #${i + 1}`}
-                  >
-                  <td className="border border-gray-300 px-4 py-2">{rec.material}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.month}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.openingBalance}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.newStockIn}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.totalStockIn}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.totalStockOut}</td>
-                  <td className="border border-gray-300 px-4 py-2">{rec.totalStockBalance}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {/* Accordion grouped tables */}
+      <div>
+        {Object.entries(groupedRecords).length === 0 ? (
+          <p className="text-center text-gray-500 italic">No records yet.</p>
+        ) : (
+          Object.entries(groupedRecords).map(([material, recs]) => (
+            <div key={material} className="mb-6 border rounded-md shadow-sm overflow-hidden">
+              <button
+                onClick={() => toggleAccordion(material)}
+                className="w-full text-left bg-blue-600 text-white px-6 py-3 font-semibold flex justify-between items-center focus:outline-none"
+                aria-expanded={!!openAccordions[material]}
+              >
+                <span>{material}</span>
+                <span className="text-2xl select-none">
+                  {openAccordions[material] ? '−' : '+'}
+                </span>
+              </button>
+
+              {openAccordions[material] && (
+                <div className="bg-white border-t border-blue-600 p-4 overflow-x-auto">
+                  <table className="min-w-full table-auto border-collapse">
+                    <thead className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+                      <tr>
+                        {['Month', 'Opening Balance', 'New Stock In', 'Total Stock In', 'Total Stock Out', 'Total Stock Balance'].map(header => (
+                          <th key={header} className="border border-gray-300 px-4 py-3 text-left tracking-wide">
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recs.map((rec, i) => (
+                        <tr
+                          key={i}
+                          className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                          title={`Record #${i + 1}`}
+                        >
+                          <td className="border border-gray-300 px-4 py-2">{rec.month}</td>
+                          <td className="border border-gray-300 px-4 py-2">{rec.openingBalance}</td>
+                          <td className="border border-gray-300 px-4 py-2">{rec.newStockIn}</td>
+                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockIn}</td>
+                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockOut}</td>
+                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockBalance}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
