@@ -21,8 +21,7 @@ const tabs = [
 
 const API_URL = 'https://backend-repo-6bhr.onrender.com';
 
-const cors = require('cors');
-app.use(cors());
+
 
 useEffect(() => {
   fetch(`${BACKEND_URL}/api/ping`)
