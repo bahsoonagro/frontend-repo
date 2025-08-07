@@ -1,315 +1,257 @@
-import React, { useState, useRef } from 'react';
-import * as XLSX from 'xlsx';
+import React, { useState } from 'react';
 
-const RawMaterials = () => {
-  const [records, setRecords] = useState([]);
+const RAW_MATERIALS = [
+  'Sugar',
+  'Rice',
+  'Sorghum',
+  'Pigeon Peas',
+  'Sesame Seeds',
+  'Other'
+];
 
+export default function RawMaterials() {
+  // Single entry form state
   const [formData, setFormData] = useState({
-    material: '',
-    month: '',
-    openingBalance: '',
-    newStockIn: '',
-    totalStockIn: '',
-    totalStockOut: '',
-    totalStockBalance: '',
+    rawMaterialType: '',
+    date: '',
+    storeKeeper: '',
+    supervisor: '',
+    location: '',
+    weightKg: '',
+    damaged: 'No'
   });
 
-  const [openAccordions, setOpenAccordions] = useState({}); // track open/close state
+  // Bulk upload JSON textarea
+  const [bulkJson, setBulkJson] = useState('');
 
-  const printRef = useRef();
+  // Feedback messages
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  const handleInputChange = (e) => {
+  // Handle single form input changes
+  function handleChange(e) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  }
 
-  const handleFormSubmit = (e) => {
+  // Submit single raw material
+  async function handleSingleSubmit(e) {
     e.preventDefault();
+    setMessage('');
+    setError('');
 
+    // Basic validation
     if (
-      !formData.material ||
-      !formData.month ||
-      formData.openingBalance === '' ||
-      formData.newStockIn === '' ||
-      formData.totalStockIn === '' ||
-      formData.totalStockOut === '' ||
-      formData.totalStockBalance === ''
+      !formData.rawMaterialType ||
+      !formData.date ||
+      !formData.storeKeeper.trim() ||
+      !formData.supervisor.trim() ||
+      !formData.location.trim() ||
+      !formData.weightKg ||
+      isNaN(Number(formData.weightKg))
     ) {
-      alert('Please fill in all fields');
+      setError('Please fill in all fields correctly.');
       return;
     }
 
-    setRecords(prev => [...prev, formData]);
-    setFormData({
-      material: '',
-      month: '',
-      openingBalance: '',
-      newStockIn: '',
-      totalStockIn: '',
-      totalStockOut: '',
-      totalStockBalance: '',
-    });
-  };
+    try {
+      const res = await fetch('/raw-materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to save raw material');
+      }
 
-    const reader = new FileReader();
+      const data = await res.json();
+      setMessage(`Saved: ${data.rawMaterialType} (${data.weightKg} Kg)`);
+      setFormData({
+        rawMaterialType: '',
+        date: '',
+        storeKeeper: '',
+        supervisor: '',
+        location: '',
+        weightKg: '',
+        damaged: 'No'
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
-    reader.onload = (evt) => {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+  // Submit bulk raw materials JSON
+  async function handleBulkSubmit(e) {
+    e.preventDefault();
+    setMessage('');
+    setError('');
 
-      const processedRecords = jsonData.slice(1).map(row => ({
-        material: row[0] || '',
-        month: row[1] || '',
-        openingBalance: row[2] !== undefined ? row[2] : '',
-        newStockIn: row[3] !== undefined ? row[3] : '',
-        totalStockIn: row[4] !== undefined ? row[4] : '',
-        totalStockOut: row[5] !== undefined ? row[5] : '',
-        totalStockBalance: row[6] !== undefined ? row[6] : '',
-      }));
-
-      setRecords(prev => [...prev, ...processedRecords]);
-    };
-
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleExport = () => {
-    if (records.length === 0) {
-      alert('No records to export');
+    let records;
+    try {
+      records = JSON.parse(bulkJson);
+      if (!Array.isArray(records) || records.length === 0) {
+        setError('Please provide a valid non-empty JSON array.');
+        return;
+      }
+    } catch {
+      setError('Invalid JSON format.');
       return;
     }
 
-    const worksheetData = [
-      [
-        'Material',
-        'Month',
-        'Opening Balance',
-        'New Stock In',
-        'Total Stock In',
-        'Total Stock Out',
-        'Total Stock Balance',
-      ],
-      ...records.map(r => [
-        r.material,
-        r.month,
-        r.openingBalance,
-        r.newStockIn,
-        r.totalStockIn,
-        r.totalStockOut,
-        r.totalStockBalance,
-      ]),
-    ];
+    try {
+      const res = await fetch('/raw-materials/bulk-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(records)
+      });
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'RawMaterials');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to bulk upload');
+      }
 
-    XLSX.writeFile(workbook, 'RawMaterials.xlsx');
-  };
-
-  const handlePrint = () => {
-    if (!printRef.current) return;
-
-    const printContents = printRef.current.innerHTML;
-    const originalContents = document.body.innerHTML;
-    document.body.innerHTML = printContents;
-    window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload();
-  };
-
-  // Group records by material
-  const groupedRecords = records.reduce((acc, rec) => {
-    if (!acc[rec.material]) acc[rec.material] = [];
-    acc[rec.material].push(rec);
-    return acc;
-  }, {});
-
-  const toggleAccordion = (material) => {
-    setOpenAccordions(prev => ({
-      ...prev,
-      [material]: !prev[material]
-    }));
-  };
+      const data = await res.json();
+      setMessage(data.message || 'Bulk upload successful');
+      setBulkJson('');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h2 className="text-3xl font-extrabold mb-6 text-center text-blue-800">Raw Materials Stock Management</h2>
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded shadow">
+      <h2 className="text-xl font-bold mb-4">Add Raw Material (Single)</h2>
+      {message && <p className="text-green-600 mb-2">{message}</p>}
+      {error && <p className="text-red-600 mb-2">{error}</p>}
 
-      {/* Manual Input Form */}
-      <form onSubmit={handleFormSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-white p-6 rounded-lg shadow-md">
-        <input
-          name="material"
-          value={formData.material}
-          onChange={handleInputChange}
-          placeholder="Material"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="month"
-          value={formData.month}
-          onChange={handleInputChange}
-          placeholder="Month"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="openingBalance"
-          value={formData.openingBalance}
-          onChange={handleInputChange}
-          placeholder="Opening Balance"
-          type="number"
-          step="any"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="newStockIn"
-          value={formData.newStockIn}
-          onChange={handleInputChange}
-          placeholder="New Stock In"
-          type="number"
-          step="any"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="totalStockIn"
-          value={formData.totalStockIn}
-          onChange={handleInputChange}
-          placeholder="Total Stock In"
-          type="number"
-          step="any"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="totalStockOut"
-          value={formData.totalStockOut}
-          onChange={handleInputChange}
-          placeholder="Total Stock Out"
-          type="number"
-          step="any"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
-        <input
-          name="totalStockBalance"
-          value={formData.totalStockBalance}
-          onChange={handleInputChange}
-          placeholder="Total Stock Balance"
-          type="number"
-          step="any"
-          className="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        />
+      <form onSubmit={handleSingleSubmit} className="space-y-4 mb-8">
+        <div>
+          <label className="block mb-1 font-semibold">Raw Material Type</label>
+          <select
+            name="rawMaterialType"
+            value={formData.rawMaterialType}
+            onChange={handleChange}
+            required
+            className="border p-2 w-full"
+          >
+            <option value="">-- Select --</option>
+            {RAW_MATERIALS.map(rm => (
+              <option key={rm} value={rm}>{rm}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Date</label>
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            required
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Store Keeper Name</label>
+          <input
+            type="text"
+            name="storeKeeper"
+            value={formData.storeKeeper}
+            onChange={handleChange}
+            required
+            placeholder="Enter store keeper name"
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Supervisor Name</label>
+          <input
+            type="text"
+            name="supervisor"
+            value={formData.supervisor}
+            onChange={handleChange}
+            required
+            placeholder="Enter supervisor name"
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Location</label>
+          <input
+            type="text"
+            name="location"
+            value={formData.location}
+            onChange={handleChange}
+            required
+            placeholder="Where raw material was sourced"
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Weight (Kg)</label>
+          <input
+            type="number"
+            name="weightKg"
+            value={formData.weightKg}
+            onChange={handleChange}
+            required
+            min="0"
+            step="0.01"
+            placeholder="Weight before standardization"
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1 font-semibold">Damaged?</label>
+          <select
+            name="damaged"
+            value={formData.damaged}
+            onChange={handleChange}
+            className="border p-2 w-full"
+          >
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        </div>
+
         <button
           type="submit"
-          className="bg-green-600 hover:bg-green-700 transition text-white font-semibold rounded-md p-3 flex items-center justify-center space-x-2 shadow-md"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
-          <span className="text-lg">➕</span> <span>Add Record</span>
+          Save Raw Material
         </button>
       </form>
 
-      {/* Import & Export Controls */}
-      <div className="flex flex-wrap gap-4 mb-10 justify-center">
-        <label
-          htmlFor="file-upload"
-          className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-md flex items-center space-x-2 shadow-md"
-          title="Import Excel File"
-        >
-          <span>📥</span>
-          <span>Import Excel</span>
-        </label>
-        <input
-          type="file"
-          id="file-upload"
-          accept=".xlsx,.xls"
-          onChange={handleFileUpload}
-          className="hidden"
+      <hr className="my-8" />
+
+      <h2 className="text-xl font-bold mb-4">Bulk Upload Raw Materials (JSON Array)</h2>
+      <p className="mb-2 text-gray-600 text-sm">
+        Paste an array of raw material objects in JSON format.<br/>
+      </p>
+
+      <form onSubmit={handleBulkSubmit}>
+        <textarea
+          rows="8"
+          value={bulkJson}
+          onChange={e => setBulkJson(e.target.value)}
+          placeholder='Paste JSON array here...'
+          className="border p-2 w-full mb-4 font-mono"
         />
-
         <button
-          onClick={handleExport}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-md flex items-center space-x-2 shadow-md"
-          title="Export to Excel"
+          type="submit"
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
-          <span>📤</span>
-          <span>Export Excel</span>
+          Bulk Upload
         </button>
-
-        <button
-          onClick={handlePrint}
-          className="bg-gray-700 hover:bg-gray-800 text-white font-semibold px-5 py-3 rounded-md flex items-center space-x-2 shadow-md"
-          title="Print Table"
-        >
-          <span>🖨️</span>
-          <span>Print Table</span>
-        </button>
-      </div>
-
-      {/* Accordion grouped tables */}
-      <div>
-        {Object.entries(groupedRecords).length === 0 ? (
-          <p className="text-center text-gray-500 italic">No records yet.</p>
-        ) : (
-          Object.entries(groupedRecords).map(([material, recs]) => (
-            <div key={material} className="mb-6 border rounded-md shadow-sm overflow-hidden">
-              <button
-                onClick={() => toggleAccordion(material)}
-                className="w-full text-left bg-blue-600 text-white px-6 py-3 font-semibold flex justify-between items-center focus:outline-none"
-                aria-expanded={!!openAccordions[material]}
-              >
-                <span>{material}</span>
-                <span className="text-2xl select-none">
-                  {openAccordions[material] ? '−' : '+'}
-                </span>
-              </button>
-
-              {openAccordions[material] && (
-                <div className="bg-white border-t border-blue-600 p-4 overflow-x-auto">
-                  <table className="min-w-full table-auto border-collapse">
-                    <thead className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-                      <tr>
-                        {['Month', 'Opening Balance', 'New Stock In', 'Total Stock In', 'Total Stock Out', 'Total Stock Balance'].map(header => (
-                          <th key={header} className="border border-gray-300 px-4 py-3 text-left tracking-wide">
-                            {header}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recs.map((rec, i) => (
-                        <tr
-                          key={i}
-                          className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                          title={`Record #${i + 1}`}
-                        >
-                          <td className="border border-gray-300 px-4 py-2">{rec.month}</td>
-                          <td className="border border-gray-300 px-4 py-2">{rec.openingBalance}</td>
-                          <td className="border border-gray-300 px-4 py-2">{rec.newStockIn}</td>
-                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockIn}</td>
-                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockOut}</td>
-                          <td className="border border-gray-300 px-4 py-2">{rec.totalStockBalance}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
+      </form>
     </div>
   );
-};
-
-export default RawMaterials;
+}
