@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { BACKEND_URL } from './config'; // adjust path if needed
 const API_URL = `${BACKEND_URL}/api/stocks`;
 
-const API_URL = 'https://backend-repo-6bhr.onrender.com/';
+const API_URL = 'https://backend-repo-6bhr.onrender.com/api/stocks';
  // Adjust if backend URL differs
 
 export default function StockCRUD() {
