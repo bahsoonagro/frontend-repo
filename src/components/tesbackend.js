@@ -8,7 +8,7 @@ export default function TestBackend() {
 
   // Test GET /api/ping on load
   useEffect(() => {
-    fetch(`${API_URL}/api/ping`)
+    fetch(`${ https://backend-repo-6bhr.onrender.com}/api/ping`)
       .then(res => res.text())
       .then(text => {
         console.log('Ping response:', text);
