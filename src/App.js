@@ -21,6 +21,12 @@ const tabs = [
 ];
 
 const API_URL = 'https://backend-repo-6bhr.onrender.com'; // ✅ matches variable used below
+useEffect(() => {
+  fetch(`${API_URL}/api/ping`)
+    .then(res => res.text())
+    .then(console.log)
+    .catch(err => console.error('Backend unreachable:', err));
+}, []);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
