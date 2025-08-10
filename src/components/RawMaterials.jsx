@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const API_URL = 'https://backend-repo-6bhr.onrender.com/api';
+
 const RAW_MATERIALS = [
   'Sugar',
   'Rice',
@@ -55,7 +57,7 @@ export default function RawMaterials() {
     }
 
     try {
-      const res = await fetch('/raw-materials', {
+      const res = await fetch(`${API_URL}/raw-materials`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -101,7 +103,7 @@ export default function RawMaterials() {
     }
 
     try {
-      const res = await fetch('/raw-materials/bulk-upload', {
+      const res = await fetch(`${API_URL}/raw-materials/bulk-upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(records)
