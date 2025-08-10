@@ -1,7 +1,6 @@
+import React, { useState, useEffect } from 'react';
 
-import React, { useState, useEffect } from 'react'; // ✅ include useEffect
-
-// Import all your components
+// Import your components
 import Dashboard from './components/Dashboard';
 import RawMaterials from './components/RawMaterials';
 import StockMovements from './components/StockMovements';
@@ -20,22 +19,15 @@ const tabs = [
   { id: 'reports', label: 'Reports', component: Reports },
 ];
 
-const API_URL = 'https://backend-repo-6bhr.onrender.com'; // ✅ matches variable used below
-useEffect(() => {
-  fetch(`${API_URL}/api/ping`)
-    .then(res => res.text())
-    .then(console.log)
-    .catch(err => console.error('Backend unreachable:', err));
-}, []);
-
 export default function App() {
+  const API_URL = 'https://backend-repo-6bhr.onrender.com'; // backend base URL
+
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  // ✅ useEffect must be inside the App component
   useEffect(() => {
     fetch(`${API_URL}/api/ping`)
       .then(res => res.text())
-      .then(console.log) // should log "pong"
+      .then(console.log) // should log "pong" message
       .catch(err => console.error('Backend unreachable:', err));
   }, []);
 
