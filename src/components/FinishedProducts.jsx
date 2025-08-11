@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const FinishedProducts = () => {
+const FinishedProducts = ({ apiUrl }) => {
   const [formData, setFormData] = useState({
     product: "",
     batch: "",
@@ -16,13 +16,13 @@ const FinishedProducts = () => {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Load finished products on component mount
+  // Fetch finished products from backend on mount
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
       setError("");
       try {
-        const response = await axios.get("/api/finished-products");
+        const response = await axios.get(`${apiUrl}/api/finished-products`);
         setProducts(response.data);
       } catch (err) {
         setError("Failed to load finished products.");
@@ -31,7 +31,7 @@ const FinishedProducts = () => {
       }
     };
     fetchProducts();
-  }, []);
+  }, [apiUrl]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -42,19 +42,13 @@ const FinishedProducts = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
-    if (
-      !formData.product ||
-      !formData.batch ||
-      !formData.quantity ||
-      !formData.unit ||
-      !formData.date
-    ) {
+    // Validate required fields
+    if (!formData.product || !formData.batch || !formData.quantity || !formData.unit || !formData.date) {
       setError("Please fill in all required fields.");
       return;
     }
 
-    // Map frontend fields to backend schema
+    // Prepare data to match backend schema
     const newProductData = {
       productName: formData.product,
       batchNumber: formData.batch,
@@ -67,10 +61,9 @@ const FinishedProducts = () => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post("/api/finished-products", newProductData);
+      const response = await axios.post(`${apiUrl}/api/finished-products`, newProductData);
       setProducts((prev) => [...prev, response.data]);
       setSuccessMsg("Product added successfully!");
-      // Reset form
       setFormData({
         product: "",
         batch: "",
@@ -90,10 +83,7 @@ const FinishedProducts = () => {
     <div className="p-4 max-w-5xl mx-auto">
       <h2 className="text-xl font-bold mb-4">🏷️ Finished Products</h2>
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6"
-      >
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         <input
           type="text"
           name="product"
@@ -156,12 +146,8 @@ const FinishedProducts = () => {
         </button>
       </form>
 
-      {error && (
-        <div className="mb-4 text-red-600 font-semibold">{error}</div>
-      )}
-      {successMsg && (
-        <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>
-      )}
+      {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
+      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
 
       {loading && products.length === 0 ? (
         <div>Loading products...</div>
@@ -185,9 +171,7 @@ const FinishedProducts = () => {
                   <td className="p-2 border">{prod.batchNumber}</td>
                   <td className="p-2 border">{prod.quantityKg}</td>
                   <td className="p-2 border">{prod.unit}</td>
-                  <td className="p-2 border">
-                    {new Date(prod.productionDate).toLocaleDateString()}
-                  </td>
+                  <td className="p-2 border">{new Date(prod.productionDate).toLocaleDateString()}</td>
                   <td className="p-2 border">{prod.remarks || "-"}</td>
                 </tr>
               ))}
