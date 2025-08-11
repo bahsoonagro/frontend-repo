@@ -7,27 +7,25 @@ const FinishedProducts = () => {
     batch: "",
     quantity: "",
     unit: "",
-    date: ""
+    date: "",
+    remarks: ""
   });
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const backendUrl = "https://backend-repo-ydwt.onrender.com"; // Replace with your backend URL
-
+  // Load finished products on component mount
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      setError(null);
+      setError("");
       try {
-        const res = await axios.get(`${backendUrl}/api/finished-products`);
-        setProducts(res.data);
+        const response = await axios.get("/api/finished-products");
+        setProducts(response.data);
       } catch (err) {
         setError("Failed to load finished products.");
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -37,43 +35,65 @@ const FinishedProducts = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError("");
+    setSuccessMsg("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitLoading(true);
-    setSubmitError(null);
 
-    // Basic validation example
+    // Basic validation
     if (
-      !formData.product.trim() ||
-      !formData.batch.trim() ||
+      !formData.product ||
+      !formData.batch ||
       !formData.quantity ||
-      !formData.unit.trim() ||
+      !formData.unit ||
       !formData.date
     ) {
-      setSubmitError("Please fill in all fields.");
-      setSubmitLoading(false);
+      setError("Please fill in all required fields.");
       return;
     }
 
+    // Map frontend fields to backend schema
+    const newProductData = {
+      productName: formData.product,
+      batchNumber: formData.batch,
+      quantityKg: Number(formData.quantity),
+      unit: formData.unit,
+      productionDate: formData.date,
+      remarks: formData.remarks || ""
+    };
+
+    setLoading(true);
+    setError("");
     try {
-      const res = await axios.post(`${backendUrl}/api/finished-products`, formData);
-      setProducts([...products, res.data]);
-      setFormData({ product: "", batch: "", quantity: "", unit: "", date: "" });
+      const response = await axios.post("/api/finished-products", newProductData);
+      setProducts((prev) => [...prev, response.data]);
+      setSuccessMsg("Product added successfully!");
+      // Reset form
+      setFormData({
+        product: "",
+        batch: "",
+        quantity: "",
+        unit: "",
+        date: "",
+        remarks: ""
+      });
     } catch (err) {
-      setSubmitError("Failed to save finished product. Try again.");
-      console.error(err);
+      setError("Failed to save finished product. Please try again.");
     } finally {
-      setSubmitLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 max-w-5xl mx-auto">
       <h2 className="text-xl font-bold mb-4">🏷️ Finished Products</h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6"
+      >
         <input
           type="text"
           name="product"
@@ -82,7 +102,6 @@ const FinishedProducts = () => {
           onChange={handleChange}
           className="p-2 border rounded"
           required
-          disabled={submitLoading}
         />
         <input
           type="text"
@@ -92,7 +111,6 @@ const FinishedProducts = () => {
           onChange={handleChange}
           className="p-2 border rounded"
           required
-          disabled={submitLoading}
         />
         <input
           type="number"
@@ -101,9 +119,8 @@ const FinishedProducts = () => {
           value={formData.quantity}
           onChange={handleChange}
           className="p-2 border rounded"
-          required
-          disabled={submitLoading}
           min="0"
+          required
         />
         <input
           type="text"
@@ -113,7 +130,6 @@ const FinishedProducts = () => {
           onChange={handleChange}
           className="p-2 border rounded"
           required
-          disabled={submitLoading}
         />
         <input
           type="date"
@@ -122,30 +138,36 @@ const FinishedProducts = () => {
           onChange={handleChange}
           className="p-2 border rounded"
           required
-          disabled={submitLoading}
+        />
+        <input
+          type="text"
+          name="remarks"
+          placeholder="Remarks (optional)"
+          value={formData.remarks}
+          onChange={handleChange}
+          className="p-2 border rounded"
         />
         <button
           type="submit"
-          className={`col-span-1 md:col-span-5 py-2 rounded text-white ${
-            submitLoading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-          disabled={submitLoading}
+          className="col-span-1 md:col-span-6 bg-blue-600 text-white py-2 rounded disabled:opacity-60"
+          disabled={loading}
         >
-          {submitLoading ? "Saving..." : "➕ Add Product"}
+          {loading ? "Saving..." : "➕ Add Product"}
         </button>
       </form>
 
-      {submitError && <p className="text-red-600 mb-4">{submitError}</p>}
+      {error && (
+        <div className="mb-4 text-red-600 font-semibold">{error}</div>
+      )}
+      {successMsg && (
+        <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>
+      )}
 
-      {loading ? (
-        <p>Loading finished products...</p>
-      ) : error ? (
-        <p className="text-red-600">{error}</p>
-      ) : products.length === 0 ? (
-        <p>No finished products found.</p>
+      {loading && products.length === 0 ? (
+        <div>Loading products...</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border text-sm text-left">
+        <div className="overflow-x-auto border rounded">
+          <table className="w-full text-left text-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-2 border">Product</th>
@@ -153,22 +175,29 @@ const FinishedProducts = () => {
                 <th className="p-2 border">Qty</th>
                 <th className="p-2 border">Unit</th>
                 <th className="p-2 border">Date</th>
+                <th className="p-2 border">Remarks</th>
               </tr>
             </thead>
             <tbody>
               {products.map((prod) => (
-                <tr key={prod._id || prod.id} className="hover:bg-gray-50">
-                  <td className="p-2 border">{prod.productName || prod.product}</td>
-                  <td className="p-2 border">{prod.batchNumber || prod.batch}</td>
-                  <td className="p-2 border">{prod.quantity || prod.qty}</td>
+                <tr key={prod._id} className="hover:bg-gray-50">
+                  <td className="p-2 border">{prod.productName}</td>
+                  <td className="p-2 border">{prod.batchNumber}</td>
+                  <td className="p-2 border">{prod.quantityKg}</td>
                   <td className="p-2 border">{prod.unit}</td>
                   <td className="p-2 border">
-                    {prod.date
-                      ? new Date(prod.date).toISOString().split("T")[0]
-                      : ""}
+                    {new Date(prod.productionDate).toLocaleDateString()}
                   </td>
+                  <td className="p-2 border">{prod.remarks || "-"}</td>
                 </tr>
               ))}
+              {products.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-4 text-center text-gray-500">
+                    No finished products found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
