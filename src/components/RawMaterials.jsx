@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-<<<<<<< HEAD
 const API_URL = 'https://backend-repo-ydwt.onrender.com'; // <-- Replace with your actual backend URL
 
 const RAW_MATERIALS = [
