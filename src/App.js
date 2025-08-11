@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// Import your components
 import Dashboard from './components/Dashboard';
 import RawMaterials from './components/RawMaterials';
 import StockMovements from './components/StockMovements';
@@ -20,16 +19,16 @@ const tabs = [
 ];
 
 export default function App() {
-  const API_URL = 'https://backend-repo-6bhr.onrender.com'; // backend base URL
+  const API_URL = 'https://backend-repo-ydwt.onrender.com'; // your backend URL
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     fetch(`${API_URL}/api/ping`)
-      .then(res => res.text())
-      .then(console.log) // should log "pong" message
+      .then(res => res.json())
+      .then(data => console.log('Backend ping:', data))
       .catch(err => console.error('Backend unreachable:', err));
-  }, []);
+  }, [API_URL]);
 
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component;
 
@@ -56,7 +55,7 @@ export default function App() {
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto">
-        {ActiveComponent ? <ActiveComponent /> : <p>Component not found</p>}
+        {ActiveComponent ? <ActiveComponent apiUrl={API_URL} /> : <p>Component not found</p>}
       </main>
     </div>
   );
