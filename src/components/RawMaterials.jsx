@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const API_URL = 'https://backend-repo-6bhr.onrender.com/api';
+const API_URL = 'https://your-backend-url.com/api'; // <-- Replace with your actual backend URL
 
 const RAW_MATERIALS = [
   'Sugar',
@@ -12,7 +12,6 @@ const RAW_MATERIALS = [
 ];
 
 export default function RawMaterials() {
-  // Single entry form state
   const [formData, setFormData] = useState({
     rawMaterialType: '',
     date: '',
@@ -23,26 +22,20 @@ export default function RawMaterials() {
     damaged: 'No'
   });
 
-  // Bulk upload JSON textarea
   const [bulkJson, setBulkJson] = useState('');
-
-  // Feedback messages
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Handle single form input changes
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   }
 
-  // Submit single raw material
   async function handleSingleSubmit(e) {
     e.preventDefault();
     setMessage('');
     setError('');
 
-    // Basic validation
     if (
       !formData.rawMaterialType ||
       !formData.date ||
@@ -84,7 +77,6 @@ export default function RawMaterials() {
     }
   }
 
-  // Submit bulk raw materials JSON
   async function handleBulkSubmit(e) {
     e.preventDefault();
     setMessage('');
@@ -236,7 +228,7 @@ export default function RawMaterials() {
 
       <h2 className="text-xl font-bold mb-4">Bulk Upload Raw Materials (JSON Array)</h2>
       <p className="mb-2 text-gray-600 text-sm">
-        Paste an array of raw material objects in JSON format.<br/>
+        Paste an array of raw material objects in JSON format.<br />
       </p>
 
       <form onSubmit={handleBulkSubmit}>
