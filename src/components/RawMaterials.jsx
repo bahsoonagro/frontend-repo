@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const API_URL = 'https://backend-repo-ydwt.onrender.com'; // <-- Replace with your actual backend URL
+const API_URL = 'https://backend-repo-ydwt.onrender.com/api'; // ✅ Updated to new backend
 
 const RAW_MATERIALS = [
   'Sugar',
@@ -56,12 +56,17 @@ export default function RawMaterials() {
         body: JSON.stringify(formData)
       });
 
+      console.log("📡 Single submit response status:", res.status);
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to save raw material');
+        let errMsg = await res.text();
+        console.error("❌ Error body:", errMsg);
+        throw new Error(errMsg || 'Failed to save raw material');
       }
 
       const data = await res.json();
+      console.log("✅ API JSON response:", data);
+
       setMessage(`Saved: ${data.rawMaterialType} (${data.weightKg} Kg)`);
       setFormData({
         rawMaterialType: '',
@@ -73,6 +78,7 @@ export default function RawMaterials() {
         damaged: 'No'
       });
     } catch (err) {
+      console.error("⚠️ Caught error:", err);
       setError(err.message);
     }
   }
@@ -101,15 +107,21 @@ export default function RawMaterials() {
         body: JSON.stringify(records)
       });
 
+      console.log("📡 Bulk upload response status:", res.status);
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Failed to bulk upload');
+        let errMsg = await res.text();
+        console.error("❌ Bulk error body:", errMsg);
+        throw new Error(errMsg || 'Failed to bulk upload');
       }
 
       const data = await res.json();
+      console.log("✅ Bulk API JSON response:", data);
+
       setMessage(data.message || 'Bulk upload successful');
       setBulkJson('');
     } catch (err) {
+      console.error("⚠️ Caught bulk error:", err);
       setError(err.message);
     }
   }
@@ -228,7 +240,7 @@ export default function RawMaterials() {
 
       <h2 className="text-xl font-bold mb-4">Bulk Upload Raw Materials (JSON Array)</h2>
       <p className="mb-2 text-gray-600 text-sm">
-        Paste an array of raw material objects in JSON format.<br />
+        Paste an array of raw material objects in JSON format.
       </p>
 
       <form onSubmit={handleBulkSubmit}>
