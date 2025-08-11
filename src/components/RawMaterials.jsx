@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-const API_URL = 'https://your-backend-url.com/api'; // <-- Replace with your actual backend URL
+<<<<<<< HEAD
+const API_URL = 'https://backend-repo-ydwt.onrender.com'; // <-- Replace with your actual backend URL
 
 const RAW_MATERIALS = [
   'Sugar',
