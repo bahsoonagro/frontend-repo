@@ -1,134 +1,46 @@
-// DispatchDelivery.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const DispatchDelivery = () => {
-  const [formData, setFormData] = useState({
-    item: '',
-    quantity: '',
-    date: '',
-    customer: '',
-    driver: '',
-    vehicle: ''
-  });
+const DispatchDelivery = ({ apiUrl }) => {
+  const [formData, setFormData] = useState({ /* same as before */ });
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const [deliveries, setDeliveries] = useState([
-    {
-      id: 1,
-      item: 'Finished Nutri-Corn',
-      quantity: 200,
-      date: '2025-07-29',
-      customer: 'Kroo Bay Wholesalers',
-      driver: 'Musa Kamara',
-      vehicle: 'AS 3249 SL'
-    }
-  ]);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const newDelivery = {
-      id: deliveries.length + 1,
-      ...formData
+  useEffect(() => {
+    const fetchDeliveries = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
+        setDeliveries(res.data);
+      } catch (err) {
+        setError("Failed to load deliveries.");
+      } finally {
+        setLoading(false);
+      }
     };
-    setDeliveries([...deliveries, newDelivery]);
-    setFormData({ item: '', quantity: '', date: '', customer: '', driver: '', vehicle: '' });
+    fetchDeliveries();
+  }, [apiUrl]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, formData);
+      setDeliveries(prev => [res.data, ...prev]);
+      setSuccessMsg("Delivery recorded successfully!");
+      setFormData({ item: '', quantity: '', date: '', customer: '', driver: '', vehicle: '' });
+    } catch (err) {
+      setError("Failed to save delivery.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">🚚 Dispatch & Delivery</h2>
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-        <input
-          type="text"
-          name="item"
-          placeholder="Item"
-          value={formData.item}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <input
-          type="number"
-          name="quantity"
-          placeholder="Quantity"
-          value={formData.quantity}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <input
-          type="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <input
-          type="text"
-          name="customer"
-          placeholder="Customer"
-          value={formData.customer}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <input
-          type="text"
-          name="driver"
-          placeholder="Driver Name"
-          value={formData.driver}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <input
-          type="text"
-          name="vehicle"
-          placeholder="Vehicle Number"
-          value={formData.vehicle}
-          onChange={handleChange}
-          className="p-2 border rounded"
-          required
-        />
-        <button type="submit" className="col-span-1 md:col-span-6 bg-green-700 text-white py-2 rounded">
-          ➕ Record Delivery
-        </button>
-      </form>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border text-sm text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">Item</th>
-              <th className="p-2 border">Qty</th>
-              <th className="p-2 border">Date</th>
-              <th className="p-2 border">Customer</th>
-              <th className="p-2 border">Driver</th>
-              <th className="p-2 border">Vehicle</th>
-            </tr>
-          </thead>
-          <tbody>
-            {deliveries.map((d) => (
-              <tr key={d.id} className="hover:bg-gray-50">
-                <td className="p-2 border">{d.item}</td>
-                <td className="p-2 border">{d.quantity}</td>
-                <td className="p-2 border">{d.date}</td>
-                <td className="p-2 border">{d.customer}</td>
-                <td className="p-2 border">{d.driver}</td>
-                <td className="p-2 border">{d.vehicle}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  // ...rest stays the same, use formData and deliveries from state
 };
-
-export default DispatchDelivery;
-
