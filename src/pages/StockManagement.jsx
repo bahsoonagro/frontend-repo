@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const API_URL = 'https://backend-repo-6bhr.onrender.com/api/stocks';
+const API_URL = 'https://backend-repo-ydwt.onrender.com/api/stocks';
  // Adjust if backend URL differs
 
 export default function StockCRUD() {

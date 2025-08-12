@@ -6,7 +6,7 @@ export default function StockList() {
 
   // Fetch stock items
   useEffect(() => {
-    fetch('https://backend-repo-6bhr.onrender.com/data')
+    fetch('https://backend-repo-ydwt.onrender.com/data')
 
       .then(res => res.json())
       .then(data => {

@@ -78,7 +78,7 @@ const RawMaterials = () => {
 
       // Send to backend API
       try {
-        const res = await fetch('https://backend-repo-6bhr.onrender.com/api/raw-materials/bulk-upload', {
+        const res = await fetch('https://backend-repo-ydwt.onrender.com/api/raw-materials/bulk-upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(processedRecords),
