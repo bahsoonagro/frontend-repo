@@ -23,7 +23,6 @@ const StockMovements = ({ apiUrl }) => {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Fetch stock movements on mount
   useEffect(() => {
     const fetchMovements = async () => {
       setLoading(true);
@@ -52,8 +51,6 @@ const StockMovements = ({ apiUrl }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Basic validation
     const requiredFields = [
       "requisitionNo",
       "dateTime",
@@ -65,7 +62,6 @@ const StockMovements = ({ apiUrl }) => {
       "storeman",
       "cleaningReceiver",
     ];
-
     for (const field of requiredFields) {
       if (!formData[field]) {
         setError(`Please fill in the ${field}.`);
@@ -78,10 +74,6 @@ const StockMovements = ({ apiUrl }) => {
     setSuccessMsg("");
 
     try {
-      // For file uploads, normally you'd handle multipart/form-data and store files somewhere (S3, cloud, etc)
-      // For simplicity, we’ll just skip file uploads here or you can implement separate endpoints.
-
-      // Submit data without files for now
       const payload = {
         ...formData,
         quantityBags: Number(formData.quantityBags),
@@ -90,7 +82,6 @@ const StockMovements = ({ apiUrl }) => {
       };
 
       const res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
-
       setMovements((prev) => [res.data, ...prev]);
       setSuccessMsg("Stock movement recorded successfully!");
       setFormData({
@@ -118,7 +109,10 @@ const StockMovements = ({ apiUrl }) => {
     <div className="p-4 max-w-6xl mx-auto">
       <h2 className="text-xl font-bold mb-4">🔁 Stock Movements</h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
+      >
         <input
           type="text"
           name="requisitionNo"
@@ -212,9 +206,7 @@ const StockMovements = ({ apiUrl }) => {
           onChange={handleChange}
           className="p-2 border rounded col-span-1 md:col-span-3"
         />
-        {/* File inputs for future implementation */}
-        {/* <input type="file" onChange={(e) => handleFileChange(e, setRequisitionFile)} /> */}
-        {/* <input type="file" onChange={(e) => handleFileChange(e, setDeliveryNoteFile)} /> */}
+
         <button
           type="submit"
           className="col-span-1 md:col-span-3 bg-blue-600 text-white py-2 rounded disabled:opacity-60"
@@ -225,7 +217,9 @@ const StockMovements = ({ apiUrl }) => {
       </form>
 
       {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
-      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
+      {successMsg && (
+        <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>
+      )}
 
       {loading && movements.length === 0 ? (
         <div>Loading stock movements...</div>
@@ -249,7 +243,10 @@ const StockMovements = ({ apiUrl }) => {
             <tbody>
               {movements.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="p-4 text-center text-gray-500">
+                  <td
+                    colSpan="10"
+                    className="p-4 text-center text-gray-500"
+                  >
                     No stock movements found.
                   </td>
                 </tr>
@@ -257,12 +254,24 @@ const StockMovements = ({ apiUrl }) => {
                 movements.map((m) => (
                   <tr key={m._id} className="hover:bg-gray-50">
                     <td className="p-2 border">{m.requisitionNo}</td>
-                    <td className="p-2 border">{new Date(m.dateTime).toLocaleString()}</td>
+                    <td className="p-2 border">
+                      {new Date(m.dateTime).toLocaleString()}
+                    </td>
                     <td className="p-2 border">{m.rawMaterial}</td>
                     <td className="p-2 border">{m.batchNumber}</td>
                     <td className="p-2 border">{m.quantityBags}</td>
-                    <td className="p-2 border">{m.weightRemovedKg.toFixed(2)}</td>
-                    <td className="p-2 border">{m.weightReceivedKg.toFixed(2)}</td>
+                    <td className="p-2 border">
+                      {typeof m.weightRemovedKg === "number" &&
+                      !isNaN(m.weightRemovedKg)
+                        ? m.weightRemovedKg.toFixed(2)
+                        : "0.00"}
+                    </td>
+                    <td className="p-2 border">
+                      {typeof m.weightReceivedKg === "number" &&
+                      !isNaN(m.weightReceivedKg)
+                        ? m.weightReceivedKg.toFixed(2)
+                        : "0.00"}
+                    </td>
                     <td className="p-2 border">{m.storeman}</td>
                     <td className="p-2 border">{m.cleaningReceiver}</td>
                     <td className="p-2 border">{m.remarks || "-"}</td>
