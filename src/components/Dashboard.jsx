@@ -1,184 +1,143 @@
 import React, { useEffect, useState } from "react";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
 
-const Dashboard = ({ apiUrl }) => {
+const Dashboard = () => {
   const [summary, setSummary] = useState(null);
   const [recentMovements, setRecentMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  // Fetch dashboard data
   useEffect(() => {
-    if (!apiUrl) return;
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await fetch(`${apiUrl}/api/reports/stock-summary`);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
+    fetch("https://backend-repo-ydwt.onrender.com/api/reports/stock-summary")
+      .then(res => res.json())
+      .then(data => {
         setSummary(data.summary);
         setRecentMovements(data.recentMovements);
-      } catch (err) {
-        console.error(err);
-        setError("Unable to load dashboard data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [apiUrl]);
+      })
+      .catch(err => console.error("Error fetching dashboard data:", err));
+  }, []);
 
-  if (!apiUrl) return <div className="p-4">No API URL provided.</div>;
-  if (loading) return <div className="p-6">Loading dashboard...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (!summary) {
+    return <div className="text-center text-lg p-10">Loading dashboard...</div>;
+  }
 
-  const metricCards = [
-    {
-      title: "Total Stock Value",
-      value: `$${Number(summary.totalStockValue || 0).toLocaleString()}`,
-      bg: "bg-green-50",
-      color: "text-green-700",
-    },
-    {
-      title: "Total Item Types",
-      value: summary.totalItemsCount,
-      bg: "bg-blue-50",
-      color: "text-blue-700",
-    },
-    {
-      title: "Total In (30d)",
-      value: summary.totalIn30,
-      bg: "bg-yellow-50",
-      color: "text-yellow-700",
-    },
-    {
-      title: "Total Out (30d)",
-      value: summary.totalOut30,
-      bg: "bg-red-50",
-      color: "text-red-700",
-    },
-    {
-      title: "Low Stock Items",
-      value: summary.lowStockCount,
-      bg: "bg-gray-100",
-      color: "text-gray-700",
-    },
-  ];
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AA00FF"];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center text-blue-800">
-        Managerial Dashboard
-      </h1>
-
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        {metricCards.map((card) => (
-          <div
-            key={card.title}
-            className={`p-4 rounded shadow ${card.bg} text-center`}
-          >
-            <p className="text-sm font-medium text-gray-500">{card.title}</p>
-            <p className={`text-2xl font-bold ${card.color} mt-2`}>
-              {card.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white p-4 rounded shadow">
-          <h3 className="text-lg font-semibold mb-4">Top 5 Items by Quantity</h3>
-          {summary.topByQty.length === 0 ? (
-            <p className="text-gray-500">No data</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summary.topByQty} margin={{ top: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="quantity" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+    <div className="p-4 md:p-8 max-w-screen overflow-x-hidden">
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-[350px]">
+        
+        {/* Top by Quantity */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-center font-semibold mb-2">Top 5 by Quantity</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <BarChart data={summary.topByQty}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="quantity" fill="#0088FE" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
-        <div className="bg-white p-4 rounded shadow">
-          <h3 className="text-lg font-semibold mb-4">Top 5 Items by Value</h3>
-          {summary.topByValue.length === 0 ? (
-            <p className="text-gray-500">No data</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summary.topByValue} margin={{ top: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(val) => `$${Number(val).toLocaleString()}`} />
-                <Bar dataKey="value" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+        {/* Top by Value */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-center font-semibold mb-2">Top 5 by Value</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <BarChart data={summary.topByValue}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#00C49F" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
 
-      {/* Recent Movements Table */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Stock Movements</h3>
-        <div className="overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2 border">Date</th>
-                <th className="p-2 border">Item</th>
-                <th className="p-2 border">Type</th>
-                <th className="p-2 border">Quantity</th>
-                <th className="p-2 border">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentMovements.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="p-4 text-center text-gray-500">
-                    No recent movements
-                  </td>
-                </tr>
-              ) : (
-                recentMovements.map((m) => (
-                  <tr key={m._id} className="hover:bg-gray-50">
-                    <td className="p-2 border">
-                      {new Date(m.date).toLocaleString()}
-                    </td>
-                    <td className="p-2 border">{m.itemName}</td>
-                    <td
-                      className={`p-2 border ${
-                        m.type === "IN"
-                          ? "text-green-600"
-                          : m.type === "OUT"
-                          ? "text-red-600"
-                          : ""
-                      }`}
-                    >
-                      {m.type}
-                    </td>
-                    <td className="p-2 border">{m.quantity}</td>
-                    <td className="p-2 border">{m.notes || "-"}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* Low Stock Items */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-center font-semibold mb-2">Low Stock Items</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <PieChart>
+              <Pie
+                data={summary.lowStockItems}
+                dataKey="quantity"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#FF8042"
+                label
+              >
+                {summary.lowStockItems.map((_, index) => (
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
+
+        {/* Stock Movements Last 30 Days */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-center font-semibold mb-2">Stock Movements (Last 30 Days)</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <BarChart data={[
+              { name: "IN", quantity: summary.totalIn30 },
+              { name: "OUT", quantity: summary.totalOut30 }
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="quantity" fill="#FFBB28" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Recent Movements */}
+        <div className="bg-white rounded-lg shadow p-4 col-span-1 sm:col-span-2">
+          <h2 className="text-center font-semibold mb-2">Recent Stock Movements</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <LineChart data={recentMovements}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="itemName" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="quantity" stroke="#AA00FF" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Total Stock Value */}
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-center font-semibold mb-2">Total Stock Value</h2>
+          <ResponsiveContainer width="100%" height="90%">
+            <PieChart>
+              <Pie
+                data={[
+                  { name: "Total Value", value: summary.totalStockValue },
+                  { name: "Remaining", value: summary.totalStockValue * 0.1 }
+                ]}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#0088FE"
+                label
+              >
+                <Cell fill="#00C49F" />
+                <Cell fill="#E0E0E0" />
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
       </div>
     </div>
   );
