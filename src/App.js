@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import logo from '/assets/logo.png';
+import logo from '/logo.png';
 
 import Dashboard from './components/Dashboard';
 import RawMaterials from './components/RawMaterials';
