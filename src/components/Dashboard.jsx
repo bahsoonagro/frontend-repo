@@ -48,7 +48,6 @@ const Dashboard = ({ apiUrl }) => {
   if (loading) return <div className="p-6 text-center">Loading charts...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
-  // Safe fallbacks
   const topByQty = summary.topByQty?.length ? summary.topByQty : [{ name: "No Data", quantity: 0 }];
   const topByValue = summary.topByValue?.length ? summary.topByValue : [{ name: "No Data", value: 0 }];
   const lowStockItems = summary.lowStockItems?.length ? summary.lowStockItems : [{ name: "No Data", quantity: 0 }];
@@ -160,8 +159,9 @@ const Dashboard = ({ apiUrl }) => {
                 <Cell fill="#E5E7EB" />
               </Pie>
               <Tooltip />
-            </ResponsiveContainer>
-          </div>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
