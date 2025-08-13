@@ -48,21 +48,23 @@ const Dashboard = ({ apiUrl }) => {
   if (loading) return <div className="p-6 text-center">Loading charts...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
-  const topByQty = summary.topByQty?.length ? summary.topByQty : [{ name: "No Data", quantity: 0 }];
-  const topByValue = summary.topByValue?.length ? summary.topByValue : [{ name: "No Data", value: 0 }];
-  const lowStockItems = summary.lowStockItems?.length ? summary.lowStockItems : [{ name: "No Data", quantity: 0 }];
-  const totalIn30 = summary.totalIn30 || 0;
-  const totalOut30 = summary.totalOut30 || 0;
-  const totalStockValue = summary.totalStockValue || 0;
+  // Fallback to at least 1 so charts render
+  const safeData = (arr, key) => arr.map((item) => ({
+    ...item,
+    [key]: item[key] > 0 ? item[key] : 1,
+  }));
 
   return (
-    <div className="p-4 md:p-6 w-full min-h-screen bg-gray-50">
+    <div className="p-4 w-full min-h-screen bg-gray-50">
       <div className="flex flex-wrap gap-6">
         {/* Top 5 by Quantity */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Top 5 by Quantity</h2>
           <ResponsiveContainer width="100%" height="90%">
-            <BarChart data={topByQty}>
+            <BarChart
+              data={safeData(summary.topByQty || [], "quantity")}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
@@ -73,10 +75,13 @@ const Dashboard = ({ apiUrl }) => {
         </div>
 
         {/* Top 5 by Value */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Top 5 by Value</h2>
           <ResponsiveContainer width="100%" height="90%">
-            <BarChart data={topByValue}>
+            <BarChart
+              data={safeData(summary.topByValue || [], "value")}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
@@ -87,21 +92,22 @@ const Dashboard = ({ apiUrl }) => {
         </div>
 
         {/* Low Stock Items */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Low Stock Items</h2>
           <ResponsiveContainer width="100%" height="90%">
             <PieChart>
               <Pie
-                data={lowStockItems}
+                data={safeData(summary.lowStockItems || [], "quantity")}
                 dataKey="quantity"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius={100}
                 label
+                minAngle={10}
               >
-                {lowStockItems.map((_, idx) => (
-                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                {(summary.lowStockItems || []).map((_, index) => (
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />
@@ -110,10 +116,16 @@ const Dashboard = ({ apiUrl }) => {
         </div>
 
         {/* Stock Movements Last 30 Days */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Stock Movements (Last 30 Days)</h2>
           <ResponsiveContainer width="100%" height="90%">
-            <BarChart data={[{ name: "IN", quantity: totalIn30 }, { name: "OUT", quantity: totalOut30 }]}>
+            <BarChart
+              data={[
+                { name: "IN", quantity: summary.totalIn30 || 1 },
+                { name: "OUT", quantity: summary.totalOut30 || 1 },
+              ]}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
@@ -124,36 +136,40 @@ const Dashboard = ({ apiUrl }) => {
         </div>
 
         {/* Recent Movements */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[600px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Recent Stock Movements</h2>
           <ResponsiveContainer width="100%" height="90%">
-            <LineChart data={recentMovements}>
+            <LineChart
+              data={recentMovements.map(r => ({ ...r, quantity: r.quantity || 1 }))}
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="itemName" />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="quantity" stroke={COLORS[3]} />
+              <Line type="monotone" dataKey="quantity" stroke={COLORS[4]} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Total Stock Value */}
-        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[350px]">
+        <div className="flex-1 min-w-[300px] bg-white p-4 rounded shadow h-[400px]">
           <h2 className="text-center font-semibold mb-2">Total Stock Value</h2>
           <ResponsiveContainer width="100%" height="90%">
             <PieChart>
               <Pie
                 data={[
-                  { name: "Total Value", value: totalStockValue },
-                  { name: "Remaining", value: totalStockValue * 0.1 },
+                  { name: "Total Value", value: summary.totalStockValue || 1 },
+                  { name: "Remaining", value: (summary.totalStockValue || 1) * 0.1 },
                 ]}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius={100}
                 label
+                minAngle={10}
               >
                 <Cell fill={COLORS[1]} />
                 <Cell fill="#E5E7EB" />
