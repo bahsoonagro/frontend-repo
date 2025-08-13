@@ -119,29 +119,29 @@ const Dashboard = ({ apiUrl }) => {
         </div>
 
         {/* Total Stock Value */}
-        <div className="bg-white p-4 rounded shadow h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={[
-                  { name: "Total Value", value: summary.totalStockValue },
-                  { name: "Remaining", value: summary.totalStockValue * 0.1 }
-                ]}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={120}
-                label
-              >
-                <Cell fill={COLORS[1]} />
-                <Cell fill="#E5E7EB" />
-              </Pie>
-              <Tooltip />
-            </ResponsiveContainer>
-          </div>
-      </div>
-    </div>
+<div className="bg-white p-4 rounded shadow h-[400px]">
+  <ResponsiveContainer width="100%" height="100%">
+    <PieChart>
+      <Pie
+        data={[
+          { name: "Total Value", value: summary.totalStockValue },
+          { name: "Remaining", value: summary.totalStockValue * 0.1 }
+        ]}
+        dataKey="value"
+        nameKey="name"
+        cx="50%"
+        cy="50%"
+        outerRadius={120}
+        label
+      >
+        <Cell fill={COLORS[1]} />
+        <Cell fill="#E5E7EB" />
+      </Pie>
+      <Tooltip />
+    </PieChart>
+  </ResponsiveContainer>
+</div>
+
   );
 };
 
