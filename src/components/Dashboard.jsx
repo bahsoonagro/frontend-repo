@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell,
+  LineChart, Line, ResponsiveContainer
 } from "recharts";
 
 const Dashboard = () => {
@@ -25,16 +25,15 @@ const Dashboard = () => {
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AA00FF"];
 
   return (
-    <div className="p-4 md:p-8 max-w-screen overflow-x-hidden">
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-[350px]">
-        
-        {/* Top by Quantity */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-center font-semibold mb-2">Top 5 by Quantity</h2>
-          <ResponsiveContainer width="100%" height="90%">
+    <div className="p-2 md:p-6 w-full">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-[350px]">
+
+        {/* Top 5 by Quantity */}
+        <div className="bg-white rounded-lg shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={summary.topByQty}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
               <Bar dataKey="quantity" fill="#0088FE" />
@@ -42,13 +41,12 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Top by Value */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-center font-semibold mb-2">Top 5 by Value</h2>
-          <ResponsiveContainer width="100%" height="90%">
+        {/* Top 5 by Value */}
+        <div className="bg-white rounded-lg shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={summary.topByValue}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
               <Bar dataKey="value" fill="#00C49F" />
@@ -57,9 +55,8 @@ const Dashboard = () => {
         </div>
 
         {/* Low Stock Items */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-center font-semibold mb-2">Low Stock Items</h2>
-          <ResponsiveContainer width="100%" height="90%">
+        <div className="bg-white rounded-lg shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={summary.lowStockItems}
@@ -67,8 +64,7 @@ const Dashboard = () => {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
-                fill="#FF8042"
+                outerRadius={100}
                 label
               >
                 {summary.lowStockItems.map((_, index) => (
@@ -81,9 +77,8 @@ const Dashboard = () => {
         </div>
 
         {/* Stock Movements Last 30 Days */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-center font-semibold mb-2">Stock Movements (Last 30 Days)</h2>
-          <ResponsiveContainer width="100%" height="90%">
+        <div className="bg-white rounded-lg shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={[
               { name: "IN", quantity: summary.totalIn30 },
               { name: "OUT", quantity: summary.totalOut30 }
@@ -98,24 +93,21 @@ const Dashboard = () => {
         </div>
 
         {/* Recent Movements */}
-        <div className="bg-white rounded-lg shadow p-4 col-span-1 sm:col-span-2">
-          <h2 className="text-center font-semibold mb-2">Recent Stock Movements</h2>
-          <ResponsiveContainer width="100%" height="90%">
+        <div className="bg-white rounded-lg shadow p-2 sm:col-span-2">
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={recentMovements}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="itemName" />
+              <XAxis dataKey="itemName" tick={{ fontSize: 12 }} />
               <YAxis />
               <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="quantity" stroke="#AA00FF" />
+              <Line type="monotone" dataKey="quantity" stroke="#AA00FF" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Total Stock Value */}
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-center font-semibold mb-2">Total Stock Value</h2>
-          <ResponsiveContainer width="100%" height="90%">
+        <div className="bg-white rounded-lg shadow p-2">
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={[
@@ -126,8 +118,7 @@ const Dashboard = () => {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
-                fill="#0088FE"
+                outerRadius={100}
                 label
               >
                 <Cell fill="#00C49F" />
