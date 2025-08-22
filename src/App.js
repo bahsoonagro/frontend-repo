@@ -19,7 +19,7 @@ const tabs = [
 ];
 
 export default function App() {
-  const API_URL = 'https://backend-repo-ydwt.onrender.com'; // your backend URL
+  const API_URL = 'https://backend-repo-ydwt.onrender.com/'; // your backend URL
 
   const [activeTab, setActiveTab] = useState('dashboard');
 
