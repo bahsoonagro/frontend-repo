@@ -1,7 +1,7 @@
 // src/components/RawMaterials.jsx
 import React, { useState, useEffect } from "react";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api";
+const API_URL = "https://backend-repo-ydwt.onrender.com";
 
 const RAW_MATERIALS = ["Sugar", "Rice", "Sorghum", "Pigeon Peas", "Sesame Seeds", "Other"];
 
