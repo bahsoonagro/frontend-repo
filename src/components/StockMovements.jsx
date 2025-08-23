@@ -11,7 +11,7 @@ const StockMovements = ({ apiUrl }) => {
   const [formData, setFormData] = useState({
     date: "",
     supplier: "",
-    collectionType: "Supplier Delivery", // "Company Collection"
+    collectionType: "Supplier Delivery", // "BFC Vehicle Collection"
     rawMaterial: "",
     quantityBags: "",
     weightKg: "",
@@ -63,7 +63,7 @@ const StockMovements = ({ apiUrl }) => {
       let res;
       if (editingId) {
         // Update existing record
-        res = await axios.put(`${apiUrl}/api/stockmovements/${editingId}`, payload);
+        res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
         setMovements((prev) =>
           prev.map((m) => (m._id === editingId ? res.data : m))
         );
