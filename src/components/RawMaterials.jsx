@@ -271,5 +271,4 @@ export default function RawMaterials() {
       </tbody>
     </table>
   </div>
-)}
-export default RawMaterials ;
+)} ;
