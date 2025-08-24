@@ -116,15 +116,17 @@ const StockMovements = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this movement?")) return;
-    try {
-      await axios.delete(`${API_BASE}/${id}`);
-      setMovements(prev => prev.filter(m => m._id !== id));
-      setSuccessMsg("Stock movement deleted successfully!");
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete movement.");
-    }
-  };
+  if (!window.confirm("Are you sure you want to delete this movement?")) return;
+
+  try {
+    await axios.delete(`${API_BASE}/stock-movements/${id}`);
+    setMovements(prev => prev.filter(m => m._id !== id));
+    setSuccessMsg("Stock movement deleted successfully!");
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to delete movement.");
+  }
+};
+
 
   const handlePrint = () => {
     const content = document.getElementById("stock-table").outerHTML;
