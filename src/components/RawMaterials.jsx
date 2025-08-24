@@ -272,3 +272,4 @@ export default function RawMaterials() {
     </table>
   </div>
 )}
+export default RawMaterials ;
