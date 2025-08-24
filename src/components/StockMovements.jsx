@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = "https://backend-repo-ydwt.onrender.com";
+const API_BASE = "https://backend-repo-ydwt.onrender.com/api/stockmovements";
 
 const StockMovements = () => {
   const [formData, setFormData] = useState({
