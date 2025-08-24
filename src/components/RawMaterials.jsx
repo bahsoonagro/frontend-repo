@@ -16,6 +16,10 @@ export default function RawMaterials() {
   const [bulkMessage, setBulkMessage] = useState("");
   const [bulkError, setBulkError] = useState("");
 
+  const cropRes = await fetch(`${API_URL}/raw-materials`);
+  const lpoRes = await fetch(`${API_URL}/raw-materials/lpo`);
+
+  
   const [crops, setCrops] = useState([]);
   const [lpos, setLpos] = useState([]);
 
