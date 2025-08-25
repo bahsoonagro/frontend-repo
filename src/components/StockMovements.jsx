@@ -1,156 +1,235 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_BASE = "https://backend-repo-ydwt.onrender.com/api/stockmovements";
+const API_URL = 'https://backend-repo-ydwt.onrender.com/api/stock-movements';
 
-const StockMovements = () => {
-  const [movements, setMovements] = useState([]);
-  const [newMovement, setNewMovement] = useState({
-    item: "",
-    quantity: "",
-    type: "in",
-    date: "",
+
+const StockMovements = ({ apiUrl }) => {
+  const [formData, setFormData] = useState({
+    requisitionNo: "",
+    dateTime: "",
+    rawMaterial: "",
+    batchNumber: "",
+    quantityBags: "",
+    weightRemovedKg: "",
+    weightReceivedKg: "",
+    storeman: "",
+    cleaningReceiver: "",
+    remarks: "",
   });
+
+  const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [editingId, setEditingId] = useState(null);
 
-  // ✅ Fetch stock movements
+  useEffect(() => {
+    fetchMovements();
+  }, [apiUrl]);
+
   const fetchMovements = async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await axios.get(API_BASE);
+      const res = await axios.get(`${apiUrl}/api/stock-movements`);
       setMovements(res.data);
     } catch (err) {
-      setError("Failed to fetch stock movements.");
+      setError("Failed to load stock movements.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchMovements();
-  }, []);
-
-  // ✅ Add new stock movement
-  const handleAddMovement = async (e) => {
-    e.preventDefault();
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     setError("");
     setSuccessMsg("");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const requiredFields = [
+      "requisitionNo",
+      "dateTime",
+      "rawMaterial",
+      "batchNumber",
+      "quantityBags",
+      "weightRemovedKg",
+      "weightReceivedKg",
+      "storeman",
+      "cleaningReceiver",
+    ];
+
+    for (const field of requiredFields) {
+      if (!formData[field]) {
+        setError(`Please fill in the ${field}.`);
+        return;
+      }
+    }
+
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+
     try {
-      const res = await axios.post(API_BASE, newMovement);
-      setMovements((prev) => [...prev, res.data]);
-      setSuccessMsg("Stock movement added successfully!");
-      setNewMovement({ item: "", quantity: "", type: "in", date: "" });
+      const payload = {
+        ...formData,
+        quantityBags: Number(formData.quantityBags),
+        weightRemovedKg: Number(formData.weightRemovedKg),
+        weightReceivedKg: Number(formData.weightReceivedKg),
+      };
+
+      let res;
+      if (editingId) {
+        // Update existing movement
+        res = await axios.put(`${apiUrl}/api/stockmovements/${editingId}`, payload);
+        setMovements((prev) =>
+          prev.map((m) => (m._id === editingId ? res.data : m))
+        );
+        setSuccessMsg("Stock movement updated successfully!");
+      } else {
+        // Create new movement
+        res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
+        setMovements((prev) => [res.data, ...prev]);
+        setSuccessMsg("Stock movement recorded successfully!");
+      }
+
+      setFormData({
+        requisitionNo: "",
+        dateTime: "",
+        rawMaterial: "",
+        batchNumber: "",
+        quantityBags: "",
+        weightRemovedKg: "",
+        weightReceivedKg: "",
+        storeman: "",
+        cleaningReceiver: "",
+        remarks: "",
+      });
+      setEditingId(null);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to add movement.");
+      setError("Failed to save stock movement. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // ✅ Delete stock movement
+  const handleEdit = (movement) => {
+    setFormData({
+      requisitionNo: movement.requisitionNo,
+      dateTime: movement.dateTime,
+      rawMaterial: movement.rawMaterial,
+      batchNumber: movement.batchNumber,
+      quantityBags: movement.quantityBags,
+      weightRemovedKg: movement.weightRemovedKg,
+      weightReceivedKg: movement.weightReceivedKg,
+      storeman: movement.storeman,
+      cleaningReceiver: movement.cleaningReceiver,
+      remarks: movement.remarks,
+    });
+    setEditingId(movement._id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this movement?")) return;
     try {
-      await axios.delete(`${API_BASE}/${id}`);
+      await axios.delete(`${apiUrl}/api/stockmovements/${id}`);
       setMovements((prev) => prev.filter((m) => m._id !== id));
       setSuccessMsg("Stock movement deleted successfully!");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to delete movement.");
+      setError("Failed to delete movement.");
     }
   };
 
+  const handlePrint = () => {
+    const printContent = document.getElementById("stock-table").outerHTML;
+    const win = window.open("", "_blank");
+    win.document.write(`<html><head><title>Stock Movements</title></head><body>${printContent}</body></html>`);
+    win.document.close();
+    win.print();
+  };
+
+  const formatNum = (val) => (val != null ? Number(val).toFixed(2) : "0.00");
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-4 text-blue-700">Stock Movements</h1>
+    <div className="p-4 max-w-6xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">🔁 Stock Movements</h2>
 
-      {/* ✅ Error & Success Messages */}
-      {error && <p className="text-red-500 mb-3">{error}</p>}
-      {successMsg && <p className="text-green-500 mb-3">{successMsg}</p>}
-
-      {/* ✅ Add Movement Form */}
-      <form onSubmit={handleAddMovement} className="mb-6 bg-white shadow p-4 rounded-xl">
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Item"
-            value={newMovement.item}
-            onChange={(e) => setNewMovement({ ...newMovement, item: e.target.value })}
-            required
-            className="border p-2 rounded"
-          />
-          <input
-            type="number"
-            placeholder="Quantity"
-            value={newMovement.quantity}
-            onChange={(e) => setNewMovement({ ...newMovement, quantity: e.target.value })}
-            required
-            className="border p-2 rounded"
-          />
-          <select
-            value={newMovement.type}
-            onChange={(e) => setNewMovement({ ...newMovement, type: e.target.value })}
-            className="border p-2 rounded"
-          >
-            <option value="in">In</option>
-            <option value="out">Out</option>
-          </select>
-          <input
-            type="date"
-            value={newMovement.date}
-            onChange={(e) => setNewMovement({ ...newMovement, date: e.target.value })}
-            required
-            className="border p-2 rounded"
-          />
-        </div>
-        <button
-          type="submit"
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Add Movement
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <input type="text" name="requisitionNo" placeholder="Requisition No" value={formData.requisitionNo} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="datetime-local" name="dateTime" value={formData.dateTime} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="text" name="rawMaterial" placeholder="Raw Material" value={formData.rawMaterial} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="text" name="batchNumber" placeholder="Batch Number" value={formData.batchNumber} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="number" name="quantityBags" placeholder="Quantity (Bags)" value={formData.quantityBags} onChange={handleChange} min="1" className="p-2 border rounded" required />
+        <input type="number" name="weightRemovedKg" placeholder="Weight Removed (Kg)" value={formData.weightRemovedKg} onChange={handleChange} min="0" step="0.01" className="p-2 border rounded" required />
+        <input type="number" name="weightReceivedKg" placeholder="Weight Received (Kg)" value={formData.weightReceivedKg} onChange={handleChange} min="0" step="0.01" className="p-2 border rounded" required />
+        <input type="text" name="storeman" placeholder="Storeman Name" value={formData.storeman} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="text" name="cleaningReceiver" placeholder="Cleaning Receiver" value={formData.cleaningReceiver} onChange={handleChange} className="p-2 border rounded" required />
+        <input type="text" name="remarks" placeholder="Remarks (optional)" value={formData.remarks} onChange={handleChange} className="p-2 border rounded col-span-1 md:col-span-3" />
+        <button type="submit" className="col-span-1 md:col-span-3 bg-blue-600 text-white py-2 rounded disabled:opacity-60" disabled={loading}>
+          {loading ? "Saving..." : editingId ? "✏️ Update Movement" : "➕ Record Movement"}
         </button>
       </form>
 
-      {/* ✅ Loading */}
-      {loading && <p>Loading stock movements...</p>}
+      {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
+      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
 
-      {/* ✅ Movements Table */}
-      <table className="w-full bg-white shadow rounded-xl overflow-hidden">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-2">Item</th>
-            <th className="p-2">Quantity</th>
-            <th className="p-2">Type</th>
-            <th className="p-2">Date</th>
-            <th className="p-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {movements.length > 0 ? (
-            movements.map((m) => (
-              <tr key={m._id} className="border-b">
-                <td className="p-2">{m.item}</td>
-                <td className="p-2">{m.quantity}</td>
-                <td className="p-2">{m.type}</td>
-                <td className="p-2">{new Date(m.date).toLocaleDateString()}</td>
-                <td className="p-2">
-                  <button
-                    onClick={() => handleDelete(m._id)}
-                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
-                </td>
+      <button onClick={handlePrint} className="mb-4 bg-gray-600 text-white py-1 px-3 rounded">🖨 Print Movements</button>
+
+      {loading && movements.length === 0 ? (
+        <div>Loading stock movements...</div>
+      ) : (
+        <div className="overflow-x-auto border rounded" id="stock-table">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2 border">Req. No</th>
+                <th className="p-2 border">Date/Time</th>
+                <th className="p-2 border">Raw Material</th>
+                <th className="p-2 border">Batch</th>
+                <th className="p-2 border">Qty (Bags)</th>
+                <th className="p-2 border">Weight Removed (Kg)</th>
+                <th className="p-2 border">Weight Received (Kg)</th>
+                <th className="p-2 border">Storeman</th>
+                <th className="p-2 border">Cleaning Receiver</th>
+                <th className="p-2 border">Remarks</th>
+                <th className="p-2 border">Actions</th>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5" className="p-4 text-center text-gray-500">
-                No stock movements found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {movements.length === 0 ? (
+                <tr>
+                  <td colSpan="11" className="p-4 text-center text-gray-500">
+                    No stock movements found.
+                  </td>
+                </tr>
+              ) : (
+                movements.map((m) => (
+                  <tr key={m._id} className="hover:bg-gray-50">
+                    <td className="p-2 border">{m.requisitionNo}</td>
+                    <td className="p-2 border">{new Date(m.dateTime).toLocaleString()}</td>
+                    <td className="p-2 border">{m.rawMaterial}</td>
+                    <td className="p-2 border">{m.batchNumber}</td>
+                    <td className="p-2 border">{m.quantityBags}</td>
+                    <td className="p-2 border">{formatNum(m.weightRemovedKg)}</td>
+                    <td className="p-2 border">{formatNum(m.weightReceivedKg)}</td>
+                    <td className="p-2 border">{m.storeman}</td>
+                    <td className="p-2 border">{m.cleaningReceiver}</td>
+                    <td className="p-2 border">{m.remarks || "-"}</td>
+                    <td className="p-2 border space-x-2">
+                      <button onClick={() => handleEdit(m)} className="bg-yellow-400 text-white py-1 px-2 rounded">Edit</button>
+                      <button onClick={() => handleDelete(m._id)} className="bg-red-600 text-white py-1 px-2 rounded">Delete</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
