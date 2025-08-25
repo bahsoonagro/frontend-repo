@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = 'https://backend-repo-ydwt.onrender.com/api/stock-movements';
+const API_URL = 'https://backend-repo-ydwt.onrender.com/api/stockmovements';
 
 
 const StockMovements = ({ apiUrl }) => {
