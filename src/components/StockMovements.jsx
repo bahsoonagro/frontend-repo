@@ -32,7 +32,7 @@ const StockMovements = ({ apiUrl }) => {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.get(`${apiUrl}/api/stock-movements`);
+      const res = await axios.get(`${apiUrl}/api/stockmovements`);
       setMovements(res.data);
     } catch (err) {
       setError("Failed to load stock movements.");
