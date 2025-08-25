@@ -5,26 +5,25 @@ const API_BASE = "https://backend-repo-ydwt.onrender.com/api/stockmovements";
 
 const StockMovements = () => {
   const [movements, setMovements] = useState([]);
-  const [form, setForm] = useState({
-    product: "",
+  const [newMovement, setNewMovement] = useState({
+    item: "",
     quantity: "",
-    type: "IN",
+    type: "in",
     date: "",
-    notes: ""
   });
   const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  // Fetch stock movements on load
+  // ✅ Fetch stock movements
   const fetchMovements = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const res = await axios.get(API_BASE);
       setMovements(res.data);
-      setLoading(false);
     } catch (err) {
       setError("Failed to fetch stock movements.");
+    } finally {
       setLoading(false);
     }
   };
@@ -33,138 +32,125 @@ const StockMovements = () => {
     fetchMovements();
   }, []);
 
-  // Handle input changes
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  // Handle form submit (create new movement)
-  const handleSubmit = async (e) => {
+  // ✅ Add new stock movement
+  const handleAddMovement = async (e) => {
     e.preventDefault();
+    setError("");
+    setSuccessMsg("");
     try {
-      const res = await axios.post(API_BASE, form);
-      setMovements([...movements, res.data]); // Add new movement to list
-      setForm({ product: "", quantity: "", type: "IN", date: "", notes: "" });
+      const res = await axios.post(API_BASE, newMovement);
+      setMovements((prev) => [...prev, res.data]);
       setSuccessMsg("Stock movement added successfully!");
-      setError("");
+      setNewMovement({ item: "", quantity: "", type: "in", date: "" });
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to add stock movement.");
+      setError(err.response?.data?.message || "Failed to add movement.");
     }
   };
 
-  // Handle delete
+  // ✅ Delete stock movement
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this movement?")) return;
     try {
       await axios.delete(`${API_BASE}/${id}`);
       setMovements((prev) => prev.filter((m) => m._id !== id));
       setSuccessMsg("Stock movement deleted successfully!");
-      setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete movement.");
     }
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4">Stock Movements</h2>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <h1 className="text-2xl font-bold mb-4 text-blue-700">Stock Movements</h1>
 
-      {/* Success/Error Messages */}
-      {successMsg && <p className="text-green-600 mb-2">{successMsg}</p>}
-      {error && <p className="text-red-600 mb-2">{error}</p>}
+      {/* ✅ Error & Success Messages */}
+      {error && <p className="text-red-500 mb-3">{error}</p>}
+      {successMsg && <p className="text-green-500 mb-3">{successMsg}</p>}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="mb-6 space-y-3">
-        <input
-          type="text"
-          name="product"
-          placeholder="Product Name"
-          value={form.product}
-          onChange={handleChange}
-          className="border p-2 w-full"
-          required
-        />
-        <input
-          type="number"
-          name="quantity"
-          placeholder="Quantity"
-          value={form.quantity}
-          onChange={handleChange}
-          className="border p-2 w-full"
-          required
-        />
-        <select
-          name="type"
-          value={form.type}
-          onChange={handleChange}
-          className="border p-2 w-full"
-        >
-          <option value="IN">IN</option>
-          <option value="OUT">OUT</option>
-        </select>
-        <input
-          type="date"
-          name="date"
-          value={form.date}
-          onChange={handleChange}
-          className="border p-2 w-full"
-          required
-        />
-        <textarea
-          name="notes"
-          placeholder="Notes"
-          value={form.notes}
-          onChange={handleChange}
-          className="border p-2 w-full"
-        />
+      {/* ✅ Add Movement Form */}
+      <form onSubmit={handleAddMovement} className="mb-6 bg-white shadow p-4 rounded-xl">
+        <div className="grid grid-cols-2 gap-4">
+          <input
+            type="text"
+            placeholder="Item"
+            value={newMovement.item}
+            onChange={(e) => setNewMovement({ ...newMovement, item: e.target.value })}
+            required
+            className="border p-2 rounded"
+          />
+          <input
+            type="number"
+            placeholder="Quantity"
+            value={newMovement.quantity}
+            onChange={(e) => setNewMovement({ ...newMovement, quantity: e.target.value })}
+            required
+            className="border p-2 rounded"
+          />
+          <select
+            value={newMovement.type}
+            onChange={(e) => setNewMovement({ ...newMovement, type: e.target.value })}
+            className="border p-2 rounded"
+          >
+            <option value="in">In</option>
+            <option value="out">Out</option>
+          </select>
+          <input
+            type="date"
+            value={newMovement.date}
+            onChange={(e) => setNewMovement({ ...newMovement, date: e.target.value })}
+            required
+            className="border p-2 rounded"
+          />
+        </div>
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Add Movement
         </button>
       </form>
 
-      {/* Table */}
-      {loading ? (
-        <p>Loading stock movements...</p>
-      ) : movements.length === 0 ? (
-        <p>No stock movements found.</p>
-      ) : (
-        <table className="w-full border-collapse border">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Product</th>
-              <th className="border p-2">Quantity</th>
-              <th className="border p-2">Type</th>
-              <th className="border p-2">Date</th>
-              <th className="border p-2">Notes</th>
-              <th className="border p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.map((m) => (
-              <tr key={m._id}>
-                <td className="border p-2">{m.product}</td>
-                <td className="border p-2">{m.quantity}</td>
-                <td className="border p-2">{m.type}</td>
-                <td className="border p-2">
-                  {new Date(m.date).toLocaleDateString()}
-                </td>
-                <td className="border p-2">{m.notes}</td>
-                <td className="border p-2">
+      {/* ✅ Loading */}
+      {loading && <p>Loading stock movements...</p>}
+
+      {/* ✅ Movements Table */}
+      <table className="w-full bg-white shadow rounded-xl overflow-hidden">
+        <thead className="bg-gray-200">
+          <tr>
+            <th className="p-2">Item</th>
+            <th className="p-2">Quantity</th>
+            <th className="p-2">Type</th>
+            <th className="p-2">Date</th>
+            <th className="p-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movements.length > 0 ? (
+            movements.map((m) => (
+              <tr key={m._id} className="border-b">
+                <td className="p-2">{m.item}</td>
+                <td className="p-2">{m.quantity}</td>
+                <td className="p-2">{m.type}</td>
+                <td className="p-2">{new Date(m.date).toLocaleDateString()}</td>
+                <td className="p-2">
                   <button
                     onClick={() => handleDelete(m._id)}
-                    className="bg-red-600 text-white px-3 py-1 rounded"
+                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-700"
                   >
                     Delete
                   </button>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" className="p-4 text-center text-gray-500">
+                No stock movements found.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 };
