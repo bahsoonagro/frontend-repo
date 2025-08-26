@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = 'https://backend-repo-ydwt.onrender.com/api/stock-movements';
-
-
 const StockMovements = ({ apiUrl }) => {
   const [formData, setFormData] = useState({
     requisitionNo: "",
@@ -84,7 +81,7 @@ const StockMovements = ({ apiUrl }) => {
       let res;
       if (editingId) {
         // Update existing movement
-        res = await axios.put(`${apiUrl}/api/stockmovements/${editingId}`, payload);
+        res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
         setMovements((prev) =>
           prev.map((m) => (m._id === editingId ? res.data : m))
         );
@@ -110,7 +107,7 @@ const StockMovements = ({ apiUrl }) => {
       });
       setEditingId(null);
     } catch (err) {
-      setError("Failed to save stock movement. Please try again.");
+      setError(err.response?.data?.message || "Failed to save stock movement. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -198,40 +195,4 @@ const StockMovements = ({ apiUrl }) => {
                 <th className="p-2 border">Remarks</th>
                 <th className="p-2 border">Actions</th>
               </tr>
-            </thead>
-            <tbody>
-              {movements.length === 0 ? (
-                <tr>
-                  <td colSpan="11" className="p-4 text-center text-gray-500">
-                    No stock movements found.
-                  </td>
-                </tr>
-              ) : (
-                movements.map((m) => (
-                  <tr key={m._id} className="hover:bg-gray-50">
-                    <td className="p-2 border">{m.requisitionNo}</td>
-                    <td className="p-2 border">{new Date(m.dateTime).toLocaleString()}</td>
-                    <td className="p-2 border">{m.rawMaterial}</td>
-                    <td className="p-2 border">{m.batchNumber}</td>
-                    <td className="p-2 border">{m.quantityBags}</td>
-                    <td className="p-2 border">{formatNum(m.weightRemovedKg)}</td>
-                    <td className="p-2 border">{formatNum(m.weightReceivedKg)}</td>
-                    <td className="p-2 border">{m.storeman}</td>
-                    <td className="p-2 border">{m.cleaningReceiver}</td>
-                    <td className="p-2 border">{m.remarks || "-"}</td>
-                    <td className="p-2 border space-x-2">
-                      <button onClick={() => handleEdit(m)} className="bg-yellow-400 text-white py-1 px-2 rounded">Edit</button>
-                      <button onClick={() => handleDelete(m._id)} className="bg-red-600 text-white py-1 px-2 rounded">Delete</button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default StockMovements;
+            </thead
