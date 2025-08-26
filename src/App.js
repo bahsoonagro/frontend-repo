@@ -7,7 +7,6 @@ import FinishedProducts from './components/FinishedProducts';
 import DispatchDelivery from './components/DispatchDelivery';
 import StockManagement from './pages/StockManagement';
 import Reports from './components/Reports';
-import inventoryRoutes from "./routes/inventoryRoutes.js";
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', component: Dashboard },
