@@ -72,24 +72,29 @@ const StockMovements = ({ apiUrl }) => {
 
     try {
       const payload = {
-        ...formData,
+        requisitionNo: formData.requisitionNo,
+        dateTime: formData.dateTime,
+        rawMaterial: formData.rawMaterial,
+        batchNumber: formData.batchNumber,
         quantityBags: Number(formData.quantityBags),
         weightRemovedKg: Number(formData.weightRemovedKg),
         weightReceivedKg: Number(formData.weightReceivedKg),
+        storeman: formData.storeman,
+        cleaningReceiver: formData.cleaningReceiver,
+        remarks: formData.remarks,
+        updateInventory: true, // optional: ensures inventory is updated in backend
       };
 
       let res;
       if (editingId) {
-        // Update existing movement
         res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
         setMovements((prev) =>
           prev.map((m) => (m._id === editingId ? res.data : m))
         );
         setSuccessMsg("Stock movement updated successfully!");
       } else {
-        // Create new movement
         res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
-        setMovements((prev) => [res.data, ...prev]);
+        setMovements((prev) => [res.data.movement, ...prev]); // note: backend returns { movement, inventory }
         setSuccessMsg("Stock movement recorded successfully!");
       }
 
@@ -107,7 +112,8 @@ const StockMovements = ({ apiUrl }) => {
       });
       setEditingId(null);
     } catch (err) {
-      setError("Failed to save stock movement. Please try again.");
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to save stock movement. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -119,12 +125,12 @@ const StockMovements = ({ apiUrl }) => {
       dateTime: movement.dateTime,
       rawMaterial: movement.rawMaterial,
       batchNumber: movement.batchNumber,
-      quantityBags: movement.quantityBags,
-      weightRemovedKg: movement.weightRemovedKg,
-      weightReceivedKg: movement.weightReceivedKg,
+      quantityBags: movement.quantityBags || "",
+      weightRemovedKg: movement.weightRemovedKg || "",
+      weightReceivedKg: movement.weightReceivedKg || "",
       storeman: movement.storeman,
       cleaningReceiver: movement.cleaningReceiver,
-      remarks: movement.remarks,
+      remarks: movement.notes || "",
     });
     setEditingId(movement._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -212,7 +218,7 @@ const StockMovements = ({ apiUrl }) => {
                   <td className="p-2 border">{formatNum(m.weightReceivedKg)}</td>
                   <td className="p-2 border">{m.storeman}</td>
                   <td className="p-2 border">{m.cleaningReceiver}</td>
-                  <td className="p-2 border">{m.remarks || "-"}</td>
+                  <td className="p-2 border">{m.notes || "-"}</td>
                   <td className="p-2 border space-x-2">
                     <button onClick={() => handleEdit(m)} className="bg-yellow-400 text-white py-1 px-2 rounded">Edit</button>
                     <button onClick={() => handleDelete(m._id)} className="bg-red-600 text-white py-1 px-2 rounded">Delete</button>
