@@ -107,7 +107,7 @@ const StockMovements = ({ apiUrl }) => {
       });
       setEditingId(null);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save stock movement. Please try again.");
+      setError("Failed to save stock movement. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -176,23 +176,55 @@ const StockMovements = ({ apiUrl }) => {
 
       <button onClick={handlePrint} className="mb-4 bg-gray-600 text-white py-1 px-3 rounded">🖨 Print Movements</button>
 
-      {loading && movements.length === 0 ? (
-        <div>Loading stock movements...</div>
-      ) : (
-        <div className="overflow-x-auto border rounded" id="stock-table">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-100">
+      <div className="overflow-x-auto border rounded" id="stock-table">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2 border">Req. No</th>
+              <th className="p-2 border">Date/Time</th>
+              <th className="p-2 border">Raw Material</th>
+              <th className="p-2 border">Batch</th>
+              <th className="p-2 border">Qty (Bags)</th>
+              <th className="p-2 border">Weight Removed (Kg)</th>
+              <th className="p-2 border">Weight Received (Kg)</th>
+              <th className="p-2 border">Storeman</th>
+              <th className="p-2 border">Cleaning Receiver</th>
+              <th className="p-2 border">Remarks</th>
+              <th className="p-2 border">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {movements.length === 0 ? (
               <tr>
-                <th className="p-2 border">Req. No</th>
-                <th className="p-2 border">Date/Time</th>
-                <th className="p-2 border">Raw Material</th>
-                <th className="p-2 border">Batch</th>
-                <th className="p-2 border">Qty (Bags)</th>
-                <th className="p-2 border">Weight Removed (Kg)</th>
-                <th className="p-2 border">Weight Received (Kg)</th>
-                <th className="p-2 border">Storeman</th>
-                <th className="p-2 border">Cleaning Receiver</th>
-                <th className="p-2 border">Remarks</th>
-                <th className="p-2 border">Actions</th>
+                <td colSpan="11" className="p-4 text-center text-gray-500">
+                  No stock movements found.
+                </td>
               </tr>
-            </thead
+            ) : (
+              movements.map((m) => (
+                <tr key={m._id} className="hover:bg-gray-50">
+                  <td className="p-2 border">{m.requisitionNo}</td>
+                  <td className="p-2 border">{new Date(m.dateTime).toLocaleString()}</td>
+                  <td className="p-2 border">{m.rawMaterial}</td>
+                  <td className="p-2 border">{m.batchNumber}</td>
+                  <td className="p-2 border">{m.quantityBags}</td>
+                  <td className="p-2 border">{formatNum(m.weightRemovedKg)}</td>
+                  <td className="p-2 border">{formatNum(m.weightReceivedKg)}</td>
+                  <td className="p-2 border">{m.storeman}</td>
+                  <td className="p-2 border">{m.cleaningReceiver}</td>
+                  <td className="p-2 border">{m.remarks || "-"}</td>
+                  <td className="p-2 border space-x-2">
+                    <button onClick={() => handleEdit(m)} className="bg-yellow-400 text-white py-1 px-2 rounded">Edit</button>
+                    <button onClick={() => handleDelete(m._id)} className="bg-red-600 text-white py-1 px-2 rounded">Delete</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default StockMovements;
