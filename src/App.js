@@ -17,7 +17,6 @@ const tabs = [
   { id: 'stockManagement', label: 'Stock Management', component: StockManagement },
   { id: 'reports', label: 'Reports', component: Reports },
 ];
-app.use("/api/inventory", inventoryRoutes);
 
 export default function App() {
   const API_URL = 'https://backend-repo-ydwt.onrender.com'; // your backend URL
