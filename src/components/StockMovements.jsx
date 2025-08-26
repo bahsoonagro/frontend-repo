@@ -136,7 +136,7 @@ const StockMovements = ({ apiUrl }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this movement?")) return;
     try {
-      await axios.delete(`${apiUrl}/api/stockmovements/${id}`);
+      await axios.delete(`${apiUrl}/api/stock-movements/${id}`);
       setMovements((prev) => prev.filter((m) => m._id !== id));
       setSuccessMsg("Stock movement deleted successfully!");
     } catch (err) {
