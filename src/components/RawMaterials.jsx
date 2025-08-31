@@ -1,236 +1,207 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 
-const materialTypes = ["Sesame Seeds", "Pigeon Peas", "Sorghum", "Sugar", "Rice"];
+const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Maize", "Groundnut", "Rice", "Wheat"];
 
-export default function RawMaterials({ apiUrl }) {
-  const API_URL = `${apiUrl}/api/raw-materials`;
+export default function RawMaterials() {
+  const [materials, setMaterials] = useState([]);
+  const [mode, setMode] = useState("single"); // single or batch
 
-  const [rawMaterials, setRawMaterials] = useState([]);
   const [formData, setFormData] = useState({
-    type: materialTypes[0],
-    dateEntry: "",
-    storekeeper: "",
+    rawMaterialType: "",
+    bags: "",
+    extraKg: "",
+    supplierName: "",
+    supplierPhone: "",
+    storeKeeper: "",
     supervisor: "",
     location: "",
-    weight: "",
-    damaged: "No",
+    date: "",
+    batchNumber: "",
   });
-  const [editingId, setEditingId] = useState(null);
-  const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    fetchRawMaterials();
-  }, []);
-
-  const fetchRawMaterials = async () => {
-    try {
-      const res = await axios.get(API_URL);
-      setRawMaterials(res.data);
-    } catch (err) {
-      console.error("Error fetching raw materials:", err);
-      setMessage("Cannot connect to backend. Check server.");
-    }
-  };
+  const [batchData, setBatchData] = useState([
+    { rawMaterialType: "", bags: "", extraKg: "", batchNumber: "", location: "" },
+  ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleBatchChange = (index, e) => {
+    const { name, value } = e.target;
+    const newBatch = [...batchData];
+    newBatch[index][name] = value;
+    setBatchData(newBatch);
+  };
+
+  const addBatchRow = () => {
+    setBatchData([...batchData, { rawMaterialType: "", bags: "", extraKg: "", batchNumber: "", location: "" }]);
+  };
+
+  const handleSingleSubmit = (e) => {
     e.preventDefault();
-    try {
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, formData);
-        setEditingId(null);
-        setMessage("Updated successfully!");
-      } else {
-        await axios.post(API_URL, formData);
-        setMessage("Added successfully!");
-      }
-      setFormData({
-        type: materialTypes[0],
-        dateEntry: "",
-        storekeeper: "",
-        supervisor: "",
-        location: "",
-        weight: "",
-        damaged: "No",
-      });
-      fetchRawMaterials();
-    } catch (err) {
-      console.error(err);
-      setMessage("Error saving raw material");
-    }
+    const weight = Number(formData.bags) * 50 + Number(formData.extraKg || 0);
+    const newMaterial = { ...formData, id: Date.now(), weight };
+    setMaterials([...materials, newMaterial]);
+    resetForm();
   };
 
-  const handleEdit = (rm) => {
-    setEditingId(rm._id);
+  const handleBatchSubmit = (e) => {
+    e.preventDefault();
+    const batchEntries = batchData.map(item => ({
+      ...item,
+      supplierName: formData.supplierName,
+      supplierPhone: formData.supplierPhone,
+      storeKeeper: formData.storeKeeper,
+      supervisor: formData.supervisor,
+      date: formData.date,
+      weight: Number(item.bags) * 50 + Number(item.extraKg || 0),
+      id: Date.now() + Math.random(),
+    }));
+    setMaterials([...materials, ...batchEntries]);
+    setBatchData([{ rawMaterialType: "", bags: "", extraKg: "", batchNumber: "", location: "" }]);
+  };
+
+  const resetForm = () => {
     setFormData({
-      type: rm.type,
-      dateEntry: rm.dateEntry || "",
-      storekeeper: rm.storekeeper || "",
-      supervisor: rm.supervisor || "",
-      location: rm.location || "",
-      weight: rm.weight,
-      damaged: rm.damaged || "No",
+      rawMaterialType: "",
+      bags: "",
+      extraKg: "",
+      supplierName: "",
+      supplierPhone: "",
+      storeKeeper: "",
+      supervisor: "",
+      location: "",
+      date: "",
+      batchNumber: "",
     });
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
-    try {
-      await axios.delete(`${API_URL}/${id}`);
-      setMessage("Deleted successfully!");
-      fetchRawMaterials();
-    } catch (err) {
-      console.error(err);
-      setMessage("Error deleting raw material");
-    }
+  const handleDelete = (id) => {
+    setMaterials(materials.filter(item => item.id !== id));
   };
 
-  const handlePrint = () => {
-    const printContent = document.getElementById("raw-materials-cards").innerHTML;
-    const newWindow = window.open("", "", "width=900,height=600");
-    newWindow.document.write("<html><head><title>Raw Materials</title></head><body>");
-    newWindow.document.write(printContent);
-    newWindow.document.write("</body></html>");
-    newWindow.document.close();
-    newWindow.print();
+  const handleEdit = (id, field, value) => {
+    setMaterials(materials.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  const adjustStock = async (type, delta) => {
-    const weight = Math.abs(delta);
-    const newEntry = {
-      type,
-      dateEntry: new Date().toISOString().split("T")[0],
-      storekeeper: "System",
-      supervisor: "System",
-      location: "N/A",
-      weight,
-      damaged: delta < 0 ? "Yes" : "No",
-    };
-    try {
-      await axios.post(API_URL, newEntry);
-      fetchRawMaterials();
-    } catch (err) {
-      console.error(err);
-      setMessage("Error adjusting stock");
-    }
+  const exportCSV = () => {
+    const csv = [
+      ["Date","Type","Bags","Extra Kg","Weight","Supplier","Phone","Storekeeper","Supervisor","Location","Batch"],
+      ...materials.map(m => [m.date, m.rawMaterialType, m.bags, m.extraKg, m.weight, m.supplierName, m.supplierPhone, m.storeKeeper, m.supervisor, m.location, m.batchNumber])
+    ].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "raw_materials.csv";
+    a.click();
   };
-
-  // Aggregate totals by type
-  const aggregatedMaterials = materialTypes.map((type) => {
-    const items = rawMaterials.filter((rm) => rm.type === type);
-    const totalWeight = items.reduce((sum, i) => sum + Number(i.weight), 0);
-    const damagedWeight = items
-      .filter((i) => i.damaged === "Yes")
-      .reduce((sum, i) => sum + Number(i.weight), 0);
-    const lastEntry = items.length
-      ? new Date(Math.max(...items.map((i) => new Date(i.dateEntry).getTime()))).toLocaleDateString()
-      : "-";
-    return { type, totalWeight, damagedWeight, remaining: totalWeight - damagedWeight, lastEntry, items };
-  });
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h2 style={{ marginBottom: "20px", color: "#333" }}>Raw Materials</h2>
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Raw Material Entry</h2>
 
-      {message && <p style={{ color: "green" }}>{message}</p>}
-
-      {/* Add / Edit Form */}
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "30px" }}
-      >
-        <select name="type" value={formData.type} onChange={handleChange}>
-          {materialTypes.map((type) => (
-            <option key={type} value={type}>{type}</option>
-          ))}
-        </select>
-        <input type="date" name="dateEntry" value={formData.dateEntry} onChange={handleChange} required />
-        <input type="text" name="storekeeper" placeholder="Storekeeper" value={formData.storekeeper} onChange={handleChange} required />
-        <input type="text" name="supervisor" placeholder="Supervisor" value={formData.supervisor} onChange={handleChange} required />
-        <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleChange} required />
-        <input type="number" name="weight" placeholder="Weight (Kg)" value={formData.weight} onChange={handleChange} required />
-        <select name="damaged" value={formData.damaged} onChange={handleChange}>
-          <option value="No">No</option>
-          <option value="Yes">Yes</option>
-        </select>
-        <button type="submit" style={{ backgroundColor: "#28a745", color: "#fff", padding: "5px 10px" }}>
-          {editingId ? "Update" : "Add"}
-        </button>
-        <button type="button" onClick={handlePrint} style={{ backgroundColor: "#007bff", color: "#fff", padding: "5px 10px" }}>
-          Print
-        </button>
-      </form>
-
-      {/* Cards */}
-      <div id="raw-materials-cards" style={{ display: "flex", flexWrap: "wrap", gap: "15px" }}>
-        {aggregatedMaterials.map((mat) => (
-          <div
-            key={mat.type}
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "10px",
-              padding: "15px",
-              width: "260px",
-              backgroundColor: "#f9f9f9",
-              boxShadow: "2px 2px 6px rgba(0,0,0,0.1)",
-            }}
-          >
-            <h3>{mat.type}</h3>
-            <p><strong>Total:</strong> {mat.totalWeight} Kg</p>
-            <p><strong>Damaged:</strong> {mat.damagedWeight} Kg</p>
-            <p><strong>Remaining:</strong> {mat.remaining} Kg</p>
-            <p><strong>Last Entry:</strong> {mat.lastEntry}</p>
-
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
-              <button
-                onClick={() => adjustStock(mat.type, 1)}
-                style={{ backgroundColor: "#28a745", color: "#fff", border: "none", borderRadius: "5px", padding: "5px 10px" }}
-                title="Add 1 Kg"
-              >
-                +1 Kg
-              </button>
-              <button
-                onClick={() => adjustStock(mat.type, -1)}
-                style={{ backgroundColor: "#dc3545", color: "#fff", border: "none", borderRadius: "5px", padding: "5px 10px" }}
-                title="Remove 1 Kg"
-              >
-                -1 Kg
-              </button>
-            </div>
-
-            {/* Individual entries */}
-            <div style={{ marginTop: "10px" }}>
-              {mat.items.map((entry) => (
-                <div key={entry._id} style={{ borderTop: "1px dashed #aaa", paddingTop: "5px", marginTop: "5px" }}>
-                  <p style={{ fontSize: "12px" }}>
-                    {entry.dateEntry} | {entry.storekeeper} | {entry.weight} Kg {entry.damaged === "Yes" ? "(Damaged)" : ""}
-                  </p>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <button
-                      onClick={() => handleEdit(entry)}
-                      style={{ backgroundColor: "#ffc107", color: "#000", border: "none", borderRadius: "5px", padding: "3px 6px", fontSize: "12px" }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(entry._id)}
-                      style={{ backgroundColor: "#dc3545", color: "#fff", border: "none", borderRadius: "5px", padding: "3px 6px", fontSize: "12px" }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        ))}
+      {/* Mode Selection */}
+      <div className="flex gap-4 mb-4">
+        <button onClick={() => setMode("single")} className={`px-4 py-2 rounded ${mode === "single" ? "bg-indigo-600 text-white" : "bg-gray-200"}`}>Single Entry</button>
+        <button onClick={() => setMode("batch")} className={`px-4 py-2 rounded ${mode === "batch" ? "bg-indigo-600 text-white" : "bg-gray-200"}`}>Batch Entry</button>
       </div>
+
+      {/* Supplier Info */}
+      <div className="bg-white shadow-md rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="text" name="supplierName" value={formData.supplierName} onChange={handleChange} placeholder="Supplier Name" className="p-2 border rounded" required/>
+        <input type="text" name="supplierPhone" value={formData.supplierPhone} onChange={handleChange} placeholder="Supplier Phone" className="p-2 border rounded" required/>
+        <input type="text" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} placeholder="Store Keeper" className="p-2 border rounded"/>
+        <input type="text" name="supervisor" value={formData.supervisor} onChange={handleChange} placeholder="Supervisor" className="p-2 border rounded"/>
+        <input type="date" name="date" value={formData.date} onChange={handleChange} className="p-2 border rounded"/>
+      </div>
+
+      {/* Single Entry Form */}
+      {mode === "single" && (
+        <form onSubmit={handleSingleSubmit} className="bg-white shadow-md rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select name="rawMaterialType" value={formData.rawMaterialType} onChange={handleChange} className="p-2 border rounded" required>
+            <option value="">Select Material</option>
+            {RAW_MATERIALS.map((m, i) => <option key={i} value={m}>{m}</option>)}
+          </select>
+          <input type="number" name="bags" value={formData.bags} onChange={handleChange} placeholder="No. of Bags (50kg)" className="p-2 border rounded" required/>
+          <input type="number" name="extraKg" value={formData.extraKg} onChange={handleChange} placeholder="Extra Kg" className="p-2 border rounded"/>
+          <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Location" className="p-2 border rounded"/>
+          <input type="text" name="batchNumber" value={formData.batchNumber} onChange={handleChange} placeholder="Batch Number" className="p-2 border rounded"/>
+          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 col-span-1 md:col-span-3">Save Entry</button>
+        </form>
+      )}
+
+      {/* Batch Entry Form */}
+      {mode === "batch" && (
+        <form onSubmit={handleBatchSubmit} className="bg-white shadow-md rounded-xl p-4 mb-6 space-y-2">
+          {batchData.map((row, idx) => (
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-5 gap-2">
+              <select name="rawMaterialType" value={row.rawMaterialType} onChange={(e)=>handleBatchChange(idx,e)} className="p-2 border rounded" required>
+                <option value="">Material</option>
+                {RAW_MATERIALS.map((m,i)=><option key={i} value={m}>{m}</option>)}
+              </select>
+              <input type="number" name="bags" value={row.bags} onChange={(e)=>handleBatchChange(idx,e)} placeholder="Bags" className="p-2 border rounded" required/>
+              <input type="number" name="extraKg" value={row.extraKg} onChange={(e)=>handleBatchChange(idx,e)} placeholder="Extra Kg" className="p-2 border rounded"/>
+              <input type="text" name="batchNumber" value={row.batchNumber} onChange={(e)=>handleBatchChange(idx,e)} placeholder="Batch Number" className="p-2 border rounded"/>
+              <input type="text" name="location" value={row.location} onChange={(e)=>handleBatchChange(idx,e)} placeholder="Location" className="p-2 border rounded"/>
+            </div>
+          ))}
+          <button type="button" onClick={addBatchRow} className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">+ Add Row</button>
+          <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 ml-2">Save Batch</button>
+        </form>
+      )}
+
+      {/* Data Table */}
+      {materials.length > 0 && (
+        <div className="overflow-x-auto bg-white rounded-xl shadow-md p-2">
+          <table className="min-w-full border-collapse">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="border px-2 py-1">Date</th>
+                <th className="border px-2 py-1">Type</th>
+                <th className="border px-2 py-1">Bags</th>
+                <th className="border px-2 py-1">Extra Kg</th>
+                <th className="border px-2 py-1">Weight</th>
+                <th className="border px-2 py-1">Supplier</th>
+                <th className="border px-2 py-1">Phone</th>
+                <th className="border px-2 py-1">Storekeeper</th>
+                <th className="border px-2 py-1">Supervisor</th>
+                <th className="border px-2 py-1">Location</th>
+                <th className="border px-2 py-1">Batch</th>
+                <th className="border px-2 py-1">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {materials.map(m=>(
+                <tr key={m.id} className="hover:bg-gray-50">
+                  <td className="border px-2 py-1"><input className="w-full" value={m.date} onChange={e=>handleEdit(m.id,'date',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.rawMaterialType} onChange={e=>handleEdit(m.id,'rawMaterialType',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" type="number" value={m.bags} onChange={e=>handleEdit(m.id,'bags',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" type="number" value={m.extraKg} onChange={e=>handleEdit(m.id,'extraKg',e.target.value)}/></td>
+                  <td className="border px-2 py-1">{Number(m.bags)*50 + Number(m.extraKg || 0)}</td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.supplierName} onChange={e=>handleEdit(m.id,'supplierName',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.supplierPhone} onChange={e=>handleEdit(m.id,'supplierPhone',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.storeKeeper} onChange={e=>handleEdit(m.id,'storeKeeper',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.supervisor} onChange={e=>handleEdit(m.id,'supervisor',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.location} onChange={e=>handleEdit(m.id,'location',e.target.value)}/></td>
+                  <td className="border px-2 py-1"><input className="w-full" value={m.batchNumber} onChange={e=>handleEdit(m.id,'batchNumber',e.target.value)}/></td>
+                  <td className="border px-2 py-1 flex gap-1">
+                    <button className="text-red-600" onClick={()=>handleDelete(m.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Export & Print */}
+          <div className="mt-2 flex gap-2">
+            <button onClick={exportCSV} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Export CSV</button>
+            <button onClick={()=>window.print()} className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700">Print</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
