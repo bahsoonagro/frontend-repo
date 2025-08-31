@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-Materials";
+const materialTypes = ["Sesame Seeds", "Pigeon Peas", "Sorghum", "Sugar", "Rice"];
 
-const RawMaterials = () => {
+const RawMaterials = ({ apiUrl }) => {
+  const API_URL = `${apiUrl}/api/raw-materials`;
+
   const [rawMaterials, setRawMaterials] = useState([]);
   const [formData, setFormData] = useState({
-    type: "",
+    type: materialTypes[0],
     weight: "",
     supplier: "",
     dateEntry: "",
@@ -15,8 +17,8 @@ const RawMaterials = () => {
     location: "",
   });
   const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
 
-  // Fetch all raw materials
   useEffect(() => {
     fetchRawMaterials();
   }, []);
@@ -25,23 +27,23 @@ const RawMaterials = () => {
     try {
       const response = await axios.get(API_URL);
       setRawMaterials(response.data);
-    } catch (error) {
-      console.error("Error fetching raw materials:", error);
+      setError("");
+    } catch (err) {
+      console.error("Error fetching raw materials:", err);
+      setError("Cannot connect to backend. Check server or URL.");
     }
   };
 
-  // Add or Update raw material
   const handleSave = async () => {
     try {
       if (editingId) {
         await axios.put(`${API_URL}/${editingId}`, formData);
         setEditingId(null);
       } else {
-        const response = await axios.post(API_URL, formData);
-        setRawMaterials([...rawMaterials, response.data]);
+        await axios.post(API_URL, formData);
       }
       setFormData({
-        type: "",
+        type: materialTypes[0],
         weight: "",
         supplier: "",
         dateEntry: "",
@@ -50,12 +52,12 @@ const RawMaterials = () => {
         location: "",
       });
       fetchRawMaterials();
-    } catch (error) {
-      console.error("Error saving raw material:", error);
+    } catch (err) {
+      console.error("Error saving raw material:", err);
+      setError("Failed to save raw material. Check backend.");
     }
   };
 
-  // Edit raw material
   const handleEdit = (rm) => {
     setEditingId(rm._id);
     setFormData({
@@ -69,15 +71,13 @@ const RawMaterials = () => {
     });
   };
 
-  // Delete raw material
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
       await axios.delete(`${API_URL}/${id}`);
-      setRawMaterials(rawMaterials.filter((rm) => rm._id !== id));
+      fetchRawMaterials();
     }
   };
 
-  // Print raw materials
   const handlePrint = () => {
     const printContent = document.getElementById("raw-materials-cards").innerHTML;
     const newWindow = window.open("", "", "width=900,height=600");
@@ -88,9 +88,50 @@ const RawMaterials = () => {
     newWindow.print();
   };
 
+  // Aggregate materials by type
+  const aggregatedMaterials = materialTypes.map((type) => {
+    const items = rawMaterials.filter((rm) => rm.type === type);
+    const totalWeight = items.reduce((sum, i) => sum + Number(i.weight), 0);
+    const damagedWeight = items
+      .filter((i) => i.damaged === "Yes")
+      .reduce((sum, i) => sum + Number(i.weight), 0);
+    const lastEntry = items.length > 0
+      ? new Date(Math.max(...items.map((i) => new Date(i.dateEntry).getTime()))).toLocaleDateString()
+      : "-";
+    return { type, totalWeight, damagedWeight, remaining: totalWeight - damagedWeight, lastEntry };
+  });
+
+  // Quick + / - adjustment
+  const adjustStock = async (type, delta) => {
+    const weight = Math.abs(delta); // we store as positive
+    const damaged = "No";
+    const dateEntry = new Date().toISOString().split("T")[0];
+    const newEntry = {
+      type,
+      weight,
+      supplier: "Quick Adjustment",
+      dateEntry,
+      damaged,
+      storekeeper: "System",
+      location: "N/A",
+    };
+    if (delta > 0) {
+      // Add stock
+      await axios.post(API_URL, newEntry);
+    } else if (delta < 0) {
+      // Remove stock: add a damaged entry representing subtraction
+      newEntry.weight = weight;
+      newEntry.damaged = "Yes"; // mark as damaged to subtract
+      await axios.post(API_URL, newEntry);
+    }
+    fetchRawMaterials();
+  };
+
   return (
     <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h2 style={{ marginBottom: "20px", color: "#333" }}>Raw Materials</h2>
+
+      {error && <p style={{ color: "red", marginBottom: "15px" }}>{error}</p>}
 
       {/* Form */}
       <div
@@ -102,19 +143,21 @@ const RawMaterials = () => {
           alignItems: "center",
         }}
       >
-        <input
-          placeholder="Type"
+        <select
           value={formData.type}
           onChange={(e) => setFormData({ ...formData, type: e.target.value })}
           style={{ padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
-        />
+        >
+          {materialTypes.map((type) => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
         <input
           placeholder="Weight (Kg)"
           type="number"
           value={formData.weight}
           onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
           style={{ padding: "8px", borderRadius: "5px", border: "1px solid #ccc", width: "120px" }}
-          title="Enter weight in kilograms"
         />
         <input
           placeholder="Supplier"
@@ -133,7 +176,6 @@ const RawMaterials = () => {
           value={formData.damaged}
           onChange={(e) => setFormData({ ...formData, damaged: e.target.value })}
           style={{ padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}
-          title="Is the material damaged?"
         >
           <option value="No">No</option>
           <option value="Yes">Yes</option>
@@ -183,9 +225,9 @@ const RawMaterials = () => {
         id="raw-materials-cards"
         style={{ display: "flex", flexWrap: "wrap", gap: "15px" }}
       >
-        {rawMaterials.map((rm) => (
+        {aggregatedMaterials.map((mat) => (
           <div
-            key={rm._id}
+            key={mat.type}
             style={{
               border: "1px solid #ccc",
               borderRadius: "10px",
@@ -204,39 +246,25 @@ const RawMaterials = () => {
               e.currentTarget.style.boxShadow = "2px 2px 6px rgba(0,0,0,0.1)";
             }}
           >
-            <p title="Material Type"><strong>Type:</strong> {rm.type}</p>
-            <p title="Weight in Kg"><strong>Weight:</strong> {rm.weight} Kg</p>
-            <p title="Supplier Name"><strong>Supplier:</strong> {rm.supplier}</p>
-            <p title="Date of Entry"><strong>Date:</strong> {rm.dateEntry}</p>
-            <p title="Damaged Status"><strong>Damaged:</strong> {rm.damaged}</p>
-            <p title="Storekeeper Name"><strong>Storekeeper:</strong> {rm.storekeeper}</p>
-            <p title="Storage Location"><strong>Location:</strong> {rm.location}</p>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
+            <h3 style={{ marginBottom: "10px", color: "#333" }}>{mat.type}</h3>
+            <p><strong>Total Stock:</strong> {mat.totalWeight} Kg</p>
+            <p><strong>Damaged:</strong> {mat.damagedWeight} Kg</p>
+            <p><strong>Remaining:</strong> {mat.remaining} Kg</p>
+            <p><strong>Last Entry:</strong> {mat.lastEntry}</p>
+            <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between" }}>
               <button
-                onClick={() => handleEdit(rm)}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: "5px",
-                  border: "none",
-                  backgroundColor: "#ffc107",
-                  color: "#000",
-                  cursor: "pointer",
-                }}
+                onClick={() => adjustStock(mat.type, +1)}
+                style={{ padding: "5px 10px", borderRadius: "5px", backgroundColor: "#28a745", color: "#fff", border: "none", cursor: "pointer" }}
+                title="Add 1 Kg"
               >
-                Edit
+                +1 Kg
               </button>
               <button
-                onClick={() => handleDelete(rm._id)}
-                style={{
-                  padding: "5px 10px",
-                  borderRadius: "5px",
-                  border: "none",
-                  backgroundColor: "#dc3545",
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
+                onClick={() => adjustStock(mat.type, -1)}
+                style={{ padding: "5px 10px", borderRadius: "5px", backgroundColor: "#dc3545", color: "#fff", border: "none", cursor: "pointer" }}
+                title="Remove 1 Kg"
               >
-                Delete
+                -1 Kg
               </button>
             </div>
           </div>
