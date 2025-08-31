@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const RAW_MATERIALS = ["Sesame Seeds", "Sorghum",  "Rice", "Pigeon Peas" "Sugar"];
+const RAW_MATERIALS = ["Sesame Seeds", "Sorghum",  "Rice", "Pigeon Peas", "Sugar"];
 
 export default function RawMaterialsStage1() {
   const [materials, setMaterials] = useState([]);
