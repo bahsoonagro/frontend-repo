@@ -1,11 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import {
+  Box,
+  Button,
+  Grid,
+  TextField,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  Paper,
+  Typography,
+  IconButton,
+  Collapse
+} from "@mui/material";
+import { ExpandMore, Delete } from "@mui/icons-material";
+import { motion } from "framer-motion";
+import axios from "axios";
 
-const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Pigeon Peas", "Suagr", "Rice"];
+const API_URL = "https://your-backend-url.com/api/raw-materials";
+
+const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Pigeon Peas", "Rice", "Sugar"];
 
 export default function RawMaterialsStage1() {
   const [step, setStep] = useState(1);
   const [materials, setMaterials] = useState([]);
-
   const [formData, setFormData] = useState({
     rawMaterialType: "",
     supplierName: "",
@@ -19,7 +37,14 @@ export default function RawMaterialsStage1() {
     batchNumber: "",
   });
 
-  const handleChange = (e) => {
+  // Fetch existing data from backend
+  useEffect(() => {
+    axios.get(API_URL)
+      .then(res => setMaterials(res.data))
+      .catch(err => console.error(err));
+  }, []);
+
+  const handleChange = e => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -31,156 +56,204 @@ export default function RawMaterialsStage1() {
   const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleSave = () => {
-    const newEntry = {
-      ...formData,
-      id: Date.now(),
-      bagsAfterStd,
-      totalWeight,
-      expanded: false, // for expandable table row
-    };
-    setMaterials([...materials, newEntry]);
-    setFormData({
-      rawMaterialType: "",
-      supplierName: "",
-      supplierPhone: "",
-      supplierBags: "",
-      extraKg: "",
-      storeKeeper: "",
-      supervisor: "",
-      location: "",
-      date: "",
-      batchNumber: "",
-    });
-    setStep(1);
+    const newEntry = { ...formData, bagsAfterStd, totalWeight };
+    axios.post(API_URL, newEntry)
+      .then(res => {
+        setMaterials([...materials, res.data]);
+        setFormData({
+          rawMaterialType: "",
+          supplierName: "",
+          supplierPhone: "",
+          supplierBags: "",
+          extraKg: "",
+          storeKeeper: "",
+          supervisor: "",
+          location: "",
+          date: "",
+          batchNumber: "",
+        });
+        setStep(1);
+      })
+      .catch(err => console.error(err));
   };
 
-  const handleDelete = (id) => setMaterials(materials.filter(m => m.id !== id));
-
-  const handleEdit = (id, field, value) => {
-    setMaterials(materials.map(m => m.id === id ? { ...m, [field]: value } : m));
+  const handleDelete = id => {
+    axios.delete(`${API_URL}/${id}`)
+      .then(() => setMaterials(materials.filter(m => m.id !== id)))
+      .catch(err => console.error(err));
   };
 
-  const toggleExpand = (id) => {
+  const toggleExpand = id => {
     setMaterials(materials.map(m => m.id === id ? { ...m, expanded: !m.expanded } : m));
   };
 
-  const exportCSV = () => {
-    const csv = [
-      ["Date","Material","Supplier","Supplier Phone","Supplier Bags","Bags After Std","Extra Kg","Total Weight","Storekeeper","Supervisor","Location","Batch"],
-      ...materials.map(m => [
-        m.date,m.rawMaterialType,m.supplierName,m.supplierPhone,m.supplierBags,m.bagsAfterStd,m.extraKg,m.totalWeight,m.storeKeeper,m.supervisor,m.location,m.batchNumber
-      ])
-    ].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "raw_materials.csv";
-    a.click();
-  };
-
   return (
-    <div className="p-6">
-      <h2 className="text-xl font-semibold mb-4">Raw Material Entry - Stage 1</h2>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>
+        Raw Material Entry
+      </Typography>
 
       {/* Multi-Step Form */}
-      <div className="bg-white shadow-md rounded-xl p-4 mb-6">
+      <Paper elevation={6} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
         {step === 1 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" name="supplierName" value={formData.supplierName} onChange={handleChange} placeholder="Supplier Name" className="p-2 border rounded" required/>
-            <input type="text" name="supplierPhone" value={formData.supplierPhone} onChange={handleChange} placeholder="Supplier Phone" className="p-2 border rounded" required/>
-            <select name="rawMaterialType" value={formData.rawMaterialType} onChange={handleChange} className="p-2 border rounded" required>
-              <option value="">Select Material</option>
-              {RAW_MATERIALS.map((m,i)=><option key={i} value={m}>{m}</option>)}
-            </select>
-            <input type="number" name="supplierBags" value={formData.supplierBags} onChange={handleChange} placeholder="Supplier Quantity (bags)" className="p-2 border rounded" required/>
-            <div className="col-span-1 md:col-span-2 flex justify-end gap-2">
-              <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Next →</button>
-            </div>
-          </div>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Supplier Name"
+                name="supplierName"
+                value={formData.supplierName}
+                onChange={handleChange}
+                fullWidth
+                placeholder="Enter supplier name"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Supplier Phone"
+                name="supplierPhone"
+                value={formData.supplierPhone}
+                onChange={handleChange}
+                fullWidth
+                placeholder="Enter supplier phone"
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Raw Material</InputLabel>
+                <Select
+                  name="rawMaterialType"
+                  value={formData.rawMaterialType}
+                  onChange={handleChange}
+                  label="Raw Material"
+                >
+                  {RAW_MATERIALS.map((m, i) => <MenuItem key={i} value={m}>{m}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Supplier Quantity (bags)"
+                name="supplierBags"
+                type="number"
+                value={formData.supplierBags}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={2}>
+              <Button variant="contained" color="primary" onClick={handleNext}>
+                Next →
+              </Button>
+            </Grid>
+          </Grid>
         )}
 
         {step === 2 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="number" name="extraKg" value={formData.extraKg} onChange={handleChange} placeholder="Extra Kg" className="p-2 border rounded"/>
-            <input type="text" value={bagsAfterStd} readOnly className="p-2 border rounded bg-gray-100" placeholder="Bags After Standardization"/>
-            <input type="text" value={totalWeight} readOnly className="p-2 border rounded bg-gray-100" placeholder="Total Weight"/>
-            <div className="col-span-1 md:col-span-2 flex justify-between gap-2">
-              <button type="button" onClick={handlePrev} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">← Previous</button>
-              <button type="button" onClick={handleNext} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Next →</button>
-            </div>
-          </div>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Extra Kg"
+                name="extraKg"
+                type="number"
+                value={formData.extraKg}
+                onChange={handleChange}
+                fullWidth
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Bags After Standardization"
+                value={bagsAfterStd}
+                fullWidth
+                InputProps={{ readOnly: true }}
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Total Weight (kg)"
+                value={totalWeight}
+                fullWidth
+                InputProps={{ readOnly: true }}
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={2}>
+              <Button variant="outlined" color="secondary" onClick={handlePrev}>
+                ← Previous
+              </Button>
+              <Button variant="contained" color="primary" onClick={handleNext}>
+                Next →
+              </Button>
+            </Grid>
+          </Grid>
         )}
 
         {step === 3 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} placeholder="Store Keeper" className="p-2 border rounded"/>
-            <input type="text" name="supervisor" value={formData.supervisor} onChange={handleChange} placeholder="Supervisor" className="p-2 border rounded"/>
-            <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Location" className="p-2 border rounded"/>
-            <input type="text" name="batchNumber" value={formData.batchNumber} onChange={handleChange} placeholder="Batch Number" className="p-2 border rounded"/>
-            <input type="date" name="date" value={formData.date} onChange={handleChange} className="p-2 border rounded"/>
-            <div className="col-span-1 md:col-span-2 flex justify-between gap-2">
-              <button type="button" onClick={handlePrev} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">← Previous</button>
-              <button type="button" onClick={handleSave} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Save Entry</button>
-            </div>
-          </div>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField label="Store Keeper" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} fullWidth variant="outlined"/>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField label="Supervisor" name="supervisor" value={formData.supervisor} onChange={handleChange} fullWidth variant="outlined"/>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField label="Location" name="location" value={formData.location} onChange={handleChange} fullWidth variant="outlined"/>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField label="Batch Number" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth variant="outlined"/>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField label="Date of Entry" name="date" type="date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} variant="outlined"/>
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={2}>
+              <Button variant="outlined" color="secondary" onClick={handlePrev}>
+                ← Previous
+              </Button>
+              <Button variant="contained" color="success" onClick={handleSave}>
+                Save Entry
+              </Button>
+            </Grid>
+          </Grid>
         )}
-      </div>
+      </Paper>
 
       {/* Summary Table */}
       {materials.length > 0 && (
-        <div className="bg-white shadow-md rounded-xl p-2">
-          <table className="min-w-full border-collapse">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border px-2 py-1">Date</th>
-                <th className="border px-2 py-1">Material</th>
-                <th className="border px-2 py-1">Supplier</th>
-                <th className="border px-2 py-1">Bags After Std</th>
-                <th className="border px-2 py-1">Total Weight</th>
-                <th className="border px-2 py-1">Batch</th>
-                <th className="border px-2 py-1">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {materials.map(m => (
-                <React.Fragment key={m.id}>
-                  <tr className="hover:bg-gray-50 cursor-pointer" onClick={()=>toggleExpand(m.id)}>
-                    <td className="border px-2 py-1">{m.date}</td>
-                    <td className="border px-2 py-1">{m.rawMaterialType}</td>
-                    <td className="border px-2 py-1">{m.supplierName}</td>
-                    <td className="border px-2 py-1">{m.bagsAfterStd}</td>
-                    <td className="border px-2 py-1">{m.totalWeight}</td>
-                    <td className="border px-2 py-1">{m.batchNumber}</td>
-                    <td className="border px-2 py-1 flex gap-1">
-                      <button className="text-red-600" onClick={()=>handleDelete(m.id)}>Delete</button>
-                    </td>
-                  </tr>
-                  {m.expanded && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={7} className="p-2">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          <p><strong>Supplier Phone:</strong> {m.supplierPhone}</p>
-                          <p><strong>Extra Kg:</strong> {m.extraKg}</p>
-                          <p><strong>Storekeeper:</strong> {m.storeKeeper}</p>
-                          <p><strong>Supervisor:</strong> {m.supervisor}</p>
-                          <p><strong>Location:</strong> {m.location}</p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Export & Print */}
-          <div className="mt-2 flex gap-2">
-            <button onClick={exportCSV} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Export CSV</button>
-            <button onClick={()=>window.print()} className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700">Print</button>
-          </div>
-        </div>
+        <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
+          <Typography variant="h6" gutterBottom color="primary">Raw Material Summary</Typography>
+          {materials.map(m => (
+            <motion.div key={m.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: "1rem" }}>
+              <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
+                <Grid container spacing={1} alignItems="center">
+                  <Grid item xs={2}><Typography>{m.date}</Typography></Grid>
+                  <Grid item xs={2}><Typography>{m.rawMaterialType}</Typography></Grid>
+                  <Grid item xs={2}><Typography>{m.supplierName}</Typography></Grid>
+                  <Grid item xs={1}><Typography>{m.bagsAfterStd}</Typography></Grid>
+                  <Grid item xs={1}><Typography>{m.totalWeight}</Typography></Grid>
+                  <Grid item xs={2}><Typography>{m.batchNumber}</Typography></Grid>
+                  <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
+                    <IconButton color="error" onClick={() => handleDelete(m.id)}><Delete /></IconButton>
+                    <IconButton onClick={() => toggleExpand(m.id)}><ExpandMore /></IconButton>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Collapse in={m.expanded}>
+                      <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
+                        <Typography>Supplier Phone: {m.supplierPhone}</Typography>
+                        <Typography>Extra Kg: {m.extraKg}</Typography>
+                        <Typography>Storekeeper: {m.storeKeeper}</Typography>
+                        <Typography>Supervisor: {m.supervisor}</Typography>
+                        <Typography>Location: {m.location}</Typography>
+                      </Box>
+                    </Collapse>
+                  </Grid>
+                </Grid>
+              </Paper>
+            </motion.div>
+          ))}
+        </Paper>
       )}
-    </div>
-  );
-}
