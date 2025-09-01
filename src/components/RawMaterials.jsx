@@ -17,9 +17,9 @@ import { ExpandMore, Delete, Print } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import axios from "axios";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-Materials";
 
-const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Maize", "Groundnut", "Rice", "Wheat"];
+const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Suger", "Pigeon Peas", "Rice"];
 
 export default function RawMaterialsStage1() {
   const [step, setStep] = useState(1);
