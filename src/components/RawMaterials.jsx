@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
@@ -13,13 +13,13 @@ import {
   IconButton,
   Collapse,
 } from "@mui/material";
-import { ExpandMore, Delete } from "@mui/icons-material";
+import { ExpandMore, Delete, Print } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import axios from "axios";
 
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
 
-const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Pigeon Peas", "Suagr", "Rice"];
+const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Maize", "Groundnut", "Rice", "Wheat"];
 
 export default function RawMaterialsStage1() {
   const [step, setStep] = useState(1);
@@ -37,7 +37,8 @@ export default function RawMaterialsStage1() {
     batchNumber: "",
   });
 
-  // Fetch data from backend
+  const printRef = useRef();
+
   useEffect(() => {
     axios
       .get(API_URL)
@@ -92,6 +93,17 @@ export default function RawMaterialsStage1() {
     );
   };
 
+  const handlePrint = () => {
+    const printContent = printRef.current.innerHTML;
+    const WinPrint = window.open("", "", "width=900,height=650");
+    WinPrint.document.write("<html><head><title>Raw Material Report</title></head><body>");
+    WinPrint.document.write(printContent);
+    WinPrint.document.write("</body></html>");
+    WinPrint.document.close();
+    WinPrint.focus();
+    WinPrint.print();
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>
@@ -102,30 +114,32 @@ export default function RawMaterialsStage1() {
       <Paper elevation={6} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
         {step === 1 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 label="Supplier Name"
                 name="supplierName"
                 value={formData.supplierName}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 placeholder="Enter supplier name"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <TextField
                 label="Supplier Phone"
                 name="supplierPhone"
                 value={formData.supplierPhone}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 placeholder="Enter supplier phone"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Raw Material</InputLabel>
                 <Select
                   name="rawMaterialType"
@@ -134,14 +148,12 @@ export default function RawMaterialsStage1() {
                   label="Raw Material"
                 >
                   {RAW_MATERIALS.map((m, i) => (
-                    <MenuItem key={i} value={m}>
-                      {m}
-                    </MenuItem>
+                    <MenuItem key={i} value={m}>{m}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Supplier Quantity (bags)"
                 name="supplierBags"
@@ -149,6 +161,7 @@ export default function RawMaterialsStage1() {
                 value={formData.supplierBags}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
@@ -162,7 +175,7 @@ export default function RawMaterialsStage1() {
 
         {step === 2 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Extra Kg"
                 name="extraKg"
@@ -170,23 +183,26 @@ export default function RawMaterialsStage1() {
                 value={formData.extraKg}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Bags After Standardization"
                 value={bagsAfterStd}
                 fullWidth
+                size="small"
                 InputProps={{ readOnly: true }}
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Total Weight (kg)"
                 value={totalWeight}
                 fullWidth
+                size="small"
                 InputProps={{ readOnly: true }}
                 variant="outlined"
               />
@@ -204,47 +220,51 @@ export default function RawMaterialsStage1() {
 
         {step === 3 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Store Keeper"
                 name="storeKeeper"
                 value={formData.storeKeeper}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Supervisor"
                 name="supervisor"
                 value={formData.supervisor}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Location"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Batch Number"
                 name="batchNumber"
                 value={formData.batchNumber}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Date of Entry"
                 name="date"
@@ -252,6 +272,7 @@ export default function RawMaterialsStage1() {
                 value={formData.date}
                 onChange={handleChange}
                 fullWidth
+                size="small"
                 InputLabelProps={{ shrink: true }}
                 variant="outlined"
               />
@@ -268,65 +289,72 @@ export default function RawMaterialsStage1() {
         )}
       </Paper>
 
-      {/* Summary Table */}
+      {/* Summary Table + Print */}
       {materials.length > 0 && (
-        <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
-          <Typography variant="h6" gutterBottom color="primary">
-            Raw Material Summary
-          </Typography>
-          {materials.map((m) => (
-            <motion.div
-              key={m._id}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              style={{ marginBottom: "1rem" }}
-            >
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
-                <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={2}>
-                    <Typography>{new Date(m.date).toLocaleDateString()}</Typography>
+        <Box ref={printRef}>
+          <Box display="flex" justifyContent="flex-end" mb={2}>
+            <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
+              Print
+            </Button>
+          </Box>
+          <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
+            <Typography variant="h6" gutterBottom color="primary">
+              Raw Material Summary
+            </Typography>
+            {materials.map((m) => (
+              <motion.div
+                key={m._id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{ marginBottom: "1rem" }}
+              >
+                <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
+                  <Grid container spacing={1} alignItems="center">
+                    <Grid item xs={2}>
+                      <Typography>{new Date(m.date).toLocaleDateString()}</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography>{m.rawMaterialType}</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography>{m.supplierName}</Typography>
+                    </Grid>
+                    <Grid item xs={1}>
+                      <Typography>{m.bagsAfterStd}</Typography>
+                    </Grid>
+                    <Grid item xs={1}>
+                      <Typography>{m.totalWeight}</Typography>
+                    </Grid>
+                    <Grid item xs={2}>
+                      <Typography>{m.batchNumber}</Typography>
+                    </Grid>
+                    <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
+                      <IconButton color="error" onClick={() => handleDelete(m._id)}>
+                        <Delete />
+                      </IconButton>
+                      <IconButton onClick={() => toggleExpand(m._id)}>
+                        <ExpandMore />
+                      </IconButton>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Collapse in={m.expanded}>
+                        <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
+                          <Typography>Supplier Phone: {m.supplierPhone}</Typography>
+                          <Typography>Extra Kg: {m.extraKg}</Typography>
+                          <Typography>Storekeeper: {m.storeKeeper}</Typography>
+                          <Typography>Supervisor: {m.supervisor}</Typography>
+                          <Typography>Location: {m.location}</Typography>
+                        </Box>
+                      </Collapse>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={2}>
-                    <Typography>{m.rawMaterialType}</Typography>
-                  </Grid>
-                  <Grid item xs={2}>
-                    <Typography>{m.supplierName}</Typography>
-                  </Grid>
-                  <Grid item xs={1}>
-                    <Typography>{m.bagsAfterStd}</Typography>
-                  </Grid>
-                  <Grid item xs={1}>
-                    <Typography>{m.totalWeight}</Typography>
-                  </Grid>
-                  <Grid item xs={2}>
-                    <Typography>{m.batchNumber}</Typography>
-                  </Grid>
-                  <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
-                    <IconButton color="error" onClick={() => handleDelete(m._id)}>
-                      <Delete />
-                    </IconButton>
-                    <IconButton onClick={() => toggleExpand(m._id)}>
-                      <ExpandMore />
-                    </IconButton>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Collapse in={m.expanded}>
-                      <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
-                        <Typography>Supplier Phone: {m.supplierPhone}</Typography>
-                        <Typography>Extra Kg: {m.extraKg}</Typography>
-                        <Typography>Storekeeper: {m.storeKeeper}</Typography>
-                        <Typography>Supervisor: {m.supervisor}</Typography>
-                        <Typography>Location: {m.location}</Typography>
-                      </Box>
-                    </Collapse>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </motion.div>
-          ))}
-        </Paper>
+                </Paper>
+              </motion.div>
+            ))}
+          </Paper>
+        </Box>
       )}
     </Box>
   );
