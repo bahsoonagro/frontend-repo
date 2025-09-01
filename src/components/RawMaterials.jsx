@@ -223,37 +223,38 @@ export default function RawMaterialsStage1() {
       </Paper>
 
       {/* Summary Table */}
-      {materials.length > 0 && (
-        <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
-          <Typography variant="h6" gutterBottom color="primary">Raw Material Summary</Typography>
-          {materials.map(m => (
-            <motion.div key={m.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: "1rem" }}>
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
-                <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={2}><Typography>{m.date}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.rawMaterialType}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.supplierName}</Typography></Grid>
-                  <Grid item xs={1}><Typography>{m.bagsAfterStd}</Typography></Grid>
-                  <Grid item xs={1}><Typography>{m.totalWeight}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.batchNumber}</Typography></Grid>
-                  <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
-                    <IconButton color="error" onClick={() => handleDelete(m.id)}><Delete /></IconButton>
-                    <IconButton onClick={() => toggleExpand(m.id)}><ExpandMore /></IconButton>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Collapse in={m.expanded}>
-                      <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
-                        <Typography>Supplier Phone: {m.supplierPhone}</Typography>
-                        <Typography>Extra Kg: {m.extraKg}</Typography>
-                        <Typography>Storekeeper: {m.storeKeeper}</Typography>
-                        <Typography>Supervisor: {m.supervisor}</Typography>
-                        <Typography>Location: {m.location}</Typography>
-                      </Box>
-                    </Collapse>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </motion.div>
-          ))}
+{materials.length > 0 && (
+  <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
+    <Typography variant="h6" gutterBottom color="primary">Raw Material Summary</Typography>
+    {materials.map(m => (
+      <motion.div key={m.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: "1rem" }}>
+        <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
+          <Grid container spacing={1} alignItems="center">
+            <Grid item xs={2}><Typography>{m.date}</Typography></Grid>
+            <Grid item xs={2}><Typography>{m.rawMaterialType}</Typography></Grid>
+            <Grid item xs={2}><Typography>{m.supplierName}</Typography></Grid>
+            <Grid item xs={1}><Typography>{m.bagsAfterStd}</Typography></Grid>
+            <Grid item xs={1}><Typography>{m.totalWeight}</Typography></Grid>
+            <Grid item xs={2}><Typography>{m.batchNumber}</Typography></Grid>
+            <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
+              <IconButton color="error" onClick={() => handleDelete(m.id)}><Delete /></IconButton>
+              <IconButton onClick={() => toggleExpand(m.id)}><ExpandMore /></IconButton>
+            </Grid>
+            <Grid item xs={12}>
+              <Collapse in={m.expanded}>
+                <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
+                  <Typography>Supplier Phone: {m.supplierPhone}</Typography>
+                  <Typography>Extra Kg: {m.extraKg}</Typography>
+                  <Typography>Storekeeper: {m.storeKeeper}</Typography>
+                  <Typography>Supervisor: {m.supervisor}</Typography>
+                  <Typography>Location: {m.location}</Typography>
+                </Box>
+              </Collapse>
+            </Grid>
+          </Grid>
         </Paper>
-      )}
+      </motion.div>
+    ))}
+  </Paper>
+)}
+</Box> // <-- This closes the outer Box
