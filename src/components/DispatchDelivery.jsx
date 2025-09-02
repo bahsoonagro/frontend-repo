@@ -1,4 +1,6 @@
+// src/components/DispatchDeliveryFactory.jsx
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   Box,
   Button,
@@ -11,44 +13,66 @@ import {
   ListItemText,
   OutlinedInput,
 } from "@mui/material";
-import axios from "axios";
+
+const tollGroups = [
+  { group: "Group 1: Kekeh (Tricycles)", price: 3 },
+  { group: "Group 2: Taxis and Sedans", price: 5 },
+  { group: "Group 3: SUVs, Pickup Jeeps, Mini Buses", price: 10 },
+  { group: "Group 4: Coaches, Light Vans, Small Trucks", price: 40 },
+  { group: "Group 5: Fuel Tankers (2 Axles)", price: 250 },
+  { group: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", price: 400 },
+  { group: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", price: 600 },
+];
+
+const itemsList = [
+  "Bennimix 50g",
+  "Bennimix 400g",
+  "Pikinmix 500g",
+  "Pikinmix 1kg",
+  "Pikinmix 2kg",
+  "Supermix 50g",
+  "Pikinmix 4kg",
+  "Pikinmix 5kg",
+];
 
 export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [formData, setFormData] = useState({
     item: "",
     quantity: "",
-    batchNumber: "",
     date: "",
     customer: "",
     driver: "",
     vehicle: "",
-    personnel: [],
-    tollFee: 0,
+    tollGroup: "",
     fuelCost: 0,
     perDiem: 0,
+    personnel: [],
     totalCost: 0,
     remarks: "",
-    status: "Pending",
-    receivedQty: 0,
   });
+
   const [dispatches, setDispatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Fetch dispatch data from backend
   useEffect(() => {
+    if (!apiUrl) return;
     fetchDispatches();
   }, [apiUrl]);
 
   const fetchDispatches = async () => {
     try {
-      const res = await axios.get(`${apiUrl}/api/dispatches`);
-      setDispatches(res.data);
-    } catch {
+      const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
+      setDispatches(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
       setError("Failed to load dispatches.");
     }
   };
 
+  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -60,11 +84,13 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
 
   // Auto-calculate total cost
   useEffect(() => {
-    const perDiemTotal = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
-    const total = parseFloat(formData.tollFee || 0) + parseFloat(formData.fuelCost || 0) + perDiemTotal;
-    setFormData((prev) => ({ ...prev, totalCost: total }));
-  }, [formData.tollFee, formData.fuelCost, formData.perDiem, formData.personnel]);
+    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
+    const fuelCost = parseFloat(formData.fuelCost) || 0;
+    const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
+    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
+  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
+  // Submit new dispatch
   const handleSubmit = async (e) => {
     e.preventDefault();
     const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
@@ -84,47 +110,49 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
         perDiem: Number(formData.perDiem),
         totalCost: Number(formData.totalCost),
       };
-      const res = await axios.post(`${apiUrl}/api/dispatches`, payload);
+      const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
       setDispatches((prev) => [res.data, ...prev]);
+      setSuccessMsg("Dispatch recorded successfully!");
       setFormData({
         item: "",
         quantity: "",
-        batchNumber: "",
         date: "",
         customer: "",
         driver: "",
         vehicle: "",
-        personnel: [],
-        tollFee: 0,
+        tollGroup: "",
         fuelCost: 0,
         perDiem: 0,
+        personnel: [],
         totalCost: 0,
         remarks: "",
-        status: "Pending",
-        receivedQty: 0,
       });
       setError("");
-      setSuccessMsg("Dispatch recorded successfully!");
-    } catch {
+    } catch (err) {
+      console.error(err);
       setError("Failed to save dispatch.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Optional: Delete dispatch
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this dispatch?")) return;
     try {
-      await axios.delete(`${apiUrl}/api/dispatches/${id}`);
-      fetchDispatches();
+      await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
+      setDispatches(dispatches.filter((d) => d._id !== id));
     } catch (err) {
       console.error(err);
+      setError("Failed to delete dispatch.");
     }
   };
 
   const handlePrint = () => {
-    const table = document.getElementById("dispatch-table").outerHTML;
+    const table = document.getElementById("dispatch-table")?.outerHTML;
+    if (!table) return;
     const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Dispatches</title>
+    win.document.write(`<html><head><title>Dispatch Deliveries</title>
       <style>
         table { width: 100%; border-collapse: collapse; font-family: Arial; }
         th, td { border: 1px solid black; padding: 8px; text-align: left; }
@@ -140,21 +168,17 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <FormControl fullWidth>
-          <InputLabel>Item</InputLabel>
+          <InputLabel id="item-label">Item</InputLabel>
           <Select
+            labelId="item-label"
             name="item"
             value={formData.item}
             onChange={handleChange}
             input={<OutlinedInput label="Item" />}
           >
-            <MenuItem value="Bennimix 50g">Bennimix 50g</MenuItem>
-            <MenuItem value="Bennimix 400g">Bennimix 400g</MenuItem>
-            <MenuItem value="Pikinmix 500g">Pikinmix 500g</MenuItem>
-            <MenuItem value="Pikinmix 1kg">Pikinmix 1kg</MenuItem>
-            <MenuItem value="Pikinmix 2kg">Pikinmix 2kg</MenuItem>
-            <MenuItem value="Supermix 50g">Supermix 50g</MenuItem>
-            <MenuItem value="Pikinmix 4kg">Pikinmix 4kg</MenuItem>
-            <MenuItem value="Pikinmix 5kg">Pikinmix 5kg</MenuItem>
+            {itemsList.map((i) => (
+              <MenuItem key={i} value={i}>{i}</MenuItem>
+            ))}
           </Select>
         </FormControl>
 
@@ -165,15 +189,34 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
         <TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth />
 
         <FormControl fullWidth>
-          <InputLabel>Personnel</InputLabel>
+          <InputLabel id="toll-label">Toll Group</InputLabel>
           <Select
+            labelId="toll-label"
+            name="tollGroup"
+            value={formData.tollGroup}
+            onChange={handleChange}
+            input={<OutlinedInput label="Toll Group" />}
+          >
+            {tollGroups.map((g) => (
+              <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth />
+        <TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth />
+
+        <FormControl fullWidth>
+          <InputLabel id="personnel-label">Personnel</InputLabel>
+          <Select
+            labelId="personnel-label"
             multiple
             value={formData.personnel}
             onChange={handlePersonnelChange}
             input={<OutlinedInput label="Personnel" />}
             renderValue={(selected) => selected.join(", ")}
           >
-            {personnelList.map((p) => (
+            {(personnelList || []).map((p) => (
               <MenuItem key={p} value={p}>
                 <Checkbox checked={formData.personnel.includes(p)} />
                 <ListItemText primary={p} />
@@ -182,22 +225,8 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
           </Select>
         </FormControl>
 
-        <TextField type="number" name="tollFee" label="Toll Fee" value={formData.tollFee} onChange={handleChange} fullWidth />
-        <TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth />
-        <TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth />
-
         <TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth />
-        <TextField type="text" name="remarks" label="Remarks" value={formData.remarks} onChange={handleChange} fullWidth />
-
-        <FormControl fullWidth>
-          <InputLabel>Status</InputLabel>
-          <Select name="status" value={formData.status} onChange={handleChange}>
-            <MenuItem value="Pending">Pending</MenuItem>
-            <MenuItem value="Delivered">Delivered</MenuItem>
-          </Select>
-        </FormControl>
-
-        <TextField type="number" name="receivedQty" label="Received Quantity" value={formData.receivedQty} onChange={handleChange} fullWidth />
+        <TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
 
         <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-3">
           {loading ? "Saving..." : "➕ Record Dispatch"}
@@ -208,42 +237,50 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
       {successMsg && <Box className="mb-4 text-green-600 font-semibold">{successMsg}</Box>}
 
       <Box className="overflow-x-auto border rounded" id="dispatch-table">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr>
-              {["Item","Qty","Batch","Date","Customer","Driver","Vehicle","Personnel","Toll","Fuel","Per Diem","Total Cost","Status","Received","Remarks"].map((h) => <th key={h} className="p-2 border">{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {dispatches.length === 0 ? (
-              <tr><td colSpan="14" className="p-4 text-center text-gray-500">No dispatches recorded.</td></tr>
-            ) : dispatches.map((d, i) => (
-              <tr key={d._id} className={i % 2 === 0 ? "bg-gray-50" : ""}>
-                <td className="p-2 border">{d.item}</td>
-                <td className="p-2 border">{d.quantity}</td>
-                <td className="p-2 border">{d.batchNumber}</td>
-                <td className="p-2 border">{new Date(d.date).toLocaleDateString()}</td>
-                <td className="p-2 border">{d.customer}</td>
-                <td className="p-2 border">{d.driver}</td>
-                <td className="p-2 border">{d.vehicle}</td>
-                <td className="p-2 border">{d.personnel.join(", ")}</td>
-                <td className="p-2 border">{d.tollFee}</td>
-                <td className="p-2 border">{d.fuelCost}</td>
-                <td className="p-2 border">{d.perDiem}</td>
-                <td className="p-2 border">{d.totalCost}</td>
-                <td className="p-2 border">{d.status}</td>
-                <td className="p-2 border">{d.receivedQty}</td>
-                <td className="p-2 border">{d.remarks || "-"}</td>
-                <td className="p-2 border">
-                  <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error">❌</Button>
-                </td>
+        {dispatches.length === 0 ? (
+          <div className="text-center text-gray-500 p-4">No dispatches recorded.</div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr>
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Actions"].map((h) => (
+                  <th key={h} className="p-2 border bg-gray-100">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {dispatches.map((d, i) => (
+                <tr key={d._id || i} className={i % 2 === 0 ? "bg-gray-50" : ""}>
+                  <td className="p-2 border">{d.item || "-"}</td>
+                  <td className="p-2 border">{d.quantity || 0}</td>
+                  <td className="p-2 border">{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
+                  <td className="p-2 border">{d.customer || "-"}</td>
+                  <td className="p-2 border">{d.driver || "-"}</td>
+                  <td className="p-2 border">{d.vehicle || "-"}</td>
+                  <td className="p-2 border">{d.tollGroup || "-"}</td>
+                  <td className="p-2 border">{d.tollFee ?? 0}</td>
+                  <td className="p-2 border">{d.fuelCost ?? 0}</td>
+                  <td className="p-2 border">{d.perDiem ?? 0}</td>
+                  <td className="p-2 border">{(d.personnel || []).join(", ")}</td>
+                  <td className="p-2 border">{d.totalCost ?? 0}</td>
+                  <td className="p-2 border">{d.remarks || "-"}</td>
+                  <td className="p-2 border">
+                    <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Box>
 
       <Button variant="outlined" onClick={handlePrint} className="mt-4 bg-gray-600 text-white">🖨️ Print Table</Button>
     </Box>
   );
 }
+
+// Default props
+DispatchDeliveryFactory.defaultProps = {
+  personnelList: [],
+  apiUrl: "",
+};
