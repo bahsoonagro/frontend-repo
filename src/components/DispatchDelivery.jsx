@@ -1,41 +1,9 @@
-// src/components/DispatchDelivery.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  Box,
-  Button,
-  MenuItem,
-  Select,
-  InputLabel,
-  FormControl,
-  TextField,
-  Checkbox,
-  ListItemText,
-  OutlinedInput,
-} from "@mui/material";
 
-const tollGroups = [
-  { group: "Group 1: Kekeh (Tricycles)", price: 3 },
-  { group: "Group 2: Taxis and Sedans", price: 5 },
-  { group: "Group 3: SUVs, Pickup Jeeps, Mini Buses", price: 10 },
-  { group: "Group 4: Coaches, Light Vans, Small Trucks", price: 40 },
-  { group: "Group 5: Fuel Tankers (2 Axles)", price: 250 },
-  { group: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", price: 400 },
-  { group: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", price: 600 },
-];
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/dispatches";
 
-const itemsList = [
-  "Bennimix 50g",
-  "Bennimix 400g",
-  "Pikinmix 500g",
-  "Pikinmix 1kg",
-  "Pikinmix 2kg",
-  "Supermix 50g",
-  "Pikinmix 4kg",
-  "Pikinmix 5kg",
-];
-
-export default function DispatchDelivery({ apiUrl, personnelList }) {
+export default function DispatchDelivery() {
+  const [dispatches, setDispatches] = useState([]);
   const [formData, setFormData] = useState({
     item: "",
     quantity: "",
@@ -43,194 +11,138 @@ export default function DispatchDelivery({ apiUrl, personnelList }) {
     customer: "",
     driver: "",
     vehicle: "",
-    tollGroup: "",
+    tollFee: 0,
     fuelCost: 0,
     perDiem: 0,
-    personnel: [],
+    personnel: "",
     totalCost: 0,
     remarks: "",
   });
-  const [deliveries, setDeliveries] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
-  useEffect(() => {
-    fetchDeliveries();
-  }, [apiUrl]);
-
-  const fetchDeliveries = async () => {
+  // ✅ Fetch all dispatches
+  const fetchDispatches = async () => {
     try {
-      const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
-      setDeliveries(res.data);
-    } catch {
-      setError("Failed to load deliveries.");
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setDispatches(data);
+    } catch (error) {
+      console.error("Error fetching dispatches:", error);
     }
   };
 
+  useEffect(() => {
+    fetchDispatches();
+  }, []);
+
+  // ✅ Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePersonnelChange = (e) => {
-    setFormData((prev) => ({ ...prev, personnel: e.target.value }));
-  };
-
-  // Auto calculate total cost
-  useEffect(() => {
-    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
-    const fuelCost = parseFloat(formData.fuelCost) || 0;
-    const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
-    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
-  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
-
+  // ✅ Add new dispatch
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
-    for (const f of requiredFields) {
-      if (!formData[f]) {
-        setError(`Please fill in ${f}`);
-        return;
-      }
-    }
-
     try {
-      setLoading(true);
-      const payload = {
-        ...formData,
-        quantity: Number(formData.quantity),
-        fuelCost: Number(formData.fuelCost),
-        perDiem: Number(formData.perDiem),
-        totalCost: Number(formData.totalCost),
-      };
-      const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
-      setDeliveries((prev) => [res.data, ...prev]);
-      setSuccessMsg("Delivery recorded successfully!");
-      setFormData({
-        item: "",
-        quantity: "",
-        date: "",
-        customer: "",
-        driver: "",
-        vehicle: "",
-        tollGroup: "",
-        fuelCost: 0,
-        perDiem: 0,
-        personnel: [],
-        totalCost: 0,
-        remarks: "",
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          personnel: formData.personnel
+            ? formData.personnel.split(",").map((p) => p.trim())
+            : [],
+        }),
       });
-      setError("");
-    } catch {
-      setError("Failed to save delivery.");
-    } finally {
-      setLoading(false);
+
+      if (res.ok) {
+        setFormData({
+          item: "",
+          quantity: "",
+          date: "",
+          customer: "",
+          driver: "",
+          vehicle: "",
+          tollFee: 0,
+          fuelCost: 0,
+          perDiem: 0,
+          personnel: "",
+          totalCost: 0,
+          remarks: "",
+        });
+        fetchDispatches();
+      }
+    } catch (error) {
+      console.error("Error adding dispatch:", error);
     }
   };
 
-  const handlePrint = () => {
-    const table = document.getElementById("dispatch-table").outerHTML;
-    const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Dispatch Deliveries</title>
-      <style>
-        table { width: 100%; border-collapse: collapse; font-family: Arial; }
-        th, td { border: 1px solid black; padding: 8px; text-align: left; }
-        th { background-color: #e2e8f0; }
-      </style></head><body>${table}</body></html>`);
-    win.document.close();
-    win.print();
+  // ✅ Delete dispatch
+  const handleDelete = async (id) => {
+    try {
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      fetchDispatches();
+    } catch (error) {
+      console.error("Error deleting dispatch:", error);
+    }
   };
 
   return (
-    <Box className="p-4 max-w-6xl mx-auto">
-      <h2 className="text-xl font-bold mb-4 text-blue-600">🚚 Dispatch & Delivery</h2>
+    <div className="p-6">
+      <h2 className="text-xl font-bold mb-4">🚚 Dispatch Deliveries</h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <FormControl fullWidth>
-          <InputLabel id="item-label">Item</InputLabel>
-          <Select labelId="item-label" name="item" value={formData.item} onChange={handleChange} input={<OutlinedInput label="Item" />}>
-            {itemsList.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
-          </Select>
-        </FormControl>
-
-        <TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth />
-        <TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
-        <TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth />
-        <TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth />
-        <TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth />
-
-        <FormControl fullWidth>
-          <InputLabel id="toll-label">Toll Group</InputLabel>
-          <Select labelId="toll-label" name="tollGroup" value={formData.tollGroup} onChange={handleChange} input={<OutlinedInput label="Toll Group" />}>
-            {tollGroups.map((g) => <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>)}
-          </Select>
-        </FormControl>
-
-        <TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth />
-        <TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth />
-
-        <FormControl fullWidth>
-          <InputLabel id="personnel-label">Personnel</InputLabel>
-          <Select
-            labelId="personnel-label"
-            multiple
-            value={formData.personnel}
-            onChange={handlePersonnelChange}
-            input={<OutlinedInput label="Personnel" />}
-            renderValue={(selected) => selected.join(", ")}
-          >
-            {personnelList.map((p) => (
-              <MenuItem key={p} value={p}>
-                <Checkbox checked={formData.personnel.includes(p)} />
-                <ListItemText primary={p} />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth />
-        <TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
-
-        <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-3">
-          {loading ? "Saving..." : "➕ Record Delivery"}
-        </Button>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 mb-6">
+        <input name="item" placeholder="Item" value={formData.item} onChange={handleChange} className="border p-2 rounded" required />
+        <input type="number" name="quantity" placeholder="Quantity" value={formData.quantity} onChange={handleChange} className="border p-2 rounded" required />
+        <input type="date" name="date" value={formData.date} onChange={handleChange} className="border p-2 rounded" required />
+        <input name="customer" placeholder="Customer" value={formData.customer} onChange={handleChange} className="border p-2 rounded" required />
+        <input name="driver" placeholder="Driver" value={formData.driver} onChange={handleChange} className="border p-2 rounded" required />
+        <input name="vehicle" placeholder="Vehicle" value={formData.vehicle} onChange={handleChange} className="border p-2 rounded" required />
+        <input type="number" name="tollFee" placeholder="Toll Fee" value={formData.tollFee} onChange={handleChange} className="border p-2 rounded" />
+        <input type="number" name="fuelCost" placeholder="Fuel Cost" value={formData.fuelCost} onChange={handleChange} className="border p-2 rounded" />
+        <input type="number" name="perDiem" placeholder="Per Diem" value={formData.perDiem} onChange={handleChange} className="border p-2 rounded" />
+        <input name="personnel" placeholder="Personnel (comma separated)" value={formData.personnel} onChange={handleChange} className="border p-2 rounded" />
+        <input type="number" name="totalCost" placeholder="Total Cost" value={formData.totalCost} onChange={handleChange} className="border p-2 rounded" />
+        <input name="remarks" placeholder="Remarks" value={formData.remarks} onChange={handleChange} className="border p-2 rounded col-span-2" />
+        <button type="submit" className="col-span-2 bg-blue-500 text-white py-2 rounded">Add Dispatch</button>
       </form>
 
-      {error && <Box className="mb-4 text-red-600 font-semibold">{error}</Box>}
-      {successMsg && <Box className="mb-4 text-green-600 font-semibold">{successMsg}</Box>}
-
-      <Box className="overflow-x-auto border rounded" id="dispatch-table">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr>
-              {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Fuel","Per Diem","Personnel","Total Cost","Remarks"].map((h) => <th key={h} className="p-2 border">{h}</th>)}
+      {/* List */}
+      <h3 className="text-lg font-semibold mb-2">📋 Dispatch List</h3>
+      <table className="w-full border">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border px-2 py-1">Item</th>
+            <th className="border px-2 py-1">Quantity</th>
+            <th className="border px-2 py-1">Customer</th>
+            <th className="border px-2 py-1">Driver</th>
+            <th className="border px-2 py-1">Vehicle</th>
+            <th className="border px-2 py-1">Total Cost</th>
+            <th className="border px-2 py-1">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dispatches.map((d) => (
+            <tr key={d._id}>
+              <td className="border px-2 py-1">{d.item}</td>
+              <td className="border px-2 py-1">{d.quantity}</td>
+              <td className="border px-2 py-1">{d.customer}</td>
+              <td className="border px-2 py-1">{d.driver}</td>
+              <td className="border px-2 py-1">{d.vehicle}</td>
+              <td className="border px-2 py-1">{d.totalCost}</td>
+              <td className="border px-2 py-1">
+                <button
+                  onClick={() => handleDelete(d._id)}
+                  className="bg-red-500 text-white px-2 py-1 rounded"
+                >
+                  ❌ Delete
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {deliveries.length === 0 ? (
-              <tr><td colSpan="12" className="p-4 text-center text-gray-500">No deliveries recorded.</td></tr>
-            ) : deliveries.map((d, i) => (
-              <tr key={d._id} className={i%2===0 ? "bg-gray-50" : ""}>
-                <td className="p-2 border">{d.item}</td>
-                <td className="p-2 border">{d.quantity}</td>
-                <td className="p-2 border">{new Date(d.date).toLocaleDateString()}</td>
-                <td className="p-2 border">{d.customer}</td>
-                <td className="p-2 border">{d.driver}</td>
-                <td className="p-2 border">{d.vehicle}</td>
-                <td className="p-2 border">{d.tollGroup}</td>
-                <td className="p-2 border">{d.fuelCost}</td>
-                <td className="p-2 border">{d.perDiem}</td>
-                <td className="p-2 border">{d.personnel.join(", ")}</td>
-                <td className="p-2 border">{d.totalCost}</td>
-                <td className="p-2 border">{d.remarks || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Box>
-
-      <Button variant="outlined" onClick={handlePrint} className="mt-4 bg-gray-600 text-white">🖨️ Print Table</Button>
-    </Box>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
