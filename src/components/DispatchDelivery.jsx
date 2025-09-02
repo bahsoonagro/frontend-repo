@@ -1,8 +1,23 @@
 // src/components/DispatchDelivery.jsx
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { IconButton } from "@mui/material";
-import { Delete, Print, Edit } from "@mui/icons-material";
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import { Print, Delete, Edit } from "@mui/icons-material";
 
 const DispatchDelivery = ({ apiUrl }) => {
   const [formData, setFormData] = useState({
@@ -12,25 +27,23 @@ const DispatchDelivery = ({ apiUrl }) => {
     customer: "",
     driver: "",
     vehicle: "",
-    tollFees: 0,
+    toll: 0,
     fuelCost: 0,
     driverPerDiem: 0,
-    otherStaff: 0,
+    staffPerDiem: 0,
     remarks: "",
   });
-
   const [deliveries, setDeliveries] = useState([]);
-  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-
+  const [editingId, setEditingId] = useState(null);
   const printRef = useRef();
 
-  const totalCost = Number(formData.tollFees || 0) +
-                    Number(formData.fuelCost || 0) +
-                    Number(formData.driverPerDiem || 0) +
-                    Number(formData.otherStaff || 0);
+  const calculateTotalCost = () => {
+    const { toll, fuelCost, driverPerDiem, staffPerDiem } = formData;
+    return Number(toll || 0) + Number(fuelCost || 0) + Number(driverPerDiem || 0) + Number(staffPerDiem || 0);
+  };
 
   useEffect(() => {
     fetchDeliveries();
@@ -42,7 +55,7 @@ const DispatchDelivery = ({ apiUrl }) => {
     try {
       const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
       setDeliveries(res.data);
-    } catch (err) {
+    } catch {
       setError("Failed to load deliveries.");
     } finally {
       setLoading(false);
@@ -50,21 +63,24 @@ const DispatchDelivery = ({ apiUrl }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setError("");
-    setSuccessMsg("");
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError(""); setSuccessMsg("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Required fields
-    const required = ["item","quantity","date","customer","driver","vehicle"];
-    for (const field of required) if (!formData[field]) return setError(`Please fill in ${field}`);
-
+    const requiredFields = ["item","quantity","date","customer","driver","vehicle"];
+    for (const field of requiredFields) {
+      if (!formData[field]) { setError(`Please fill in ${field}.`); return; }
+    }
     setLoading(true);
+    setError(""); setSuccessMsg("");
     try {
-      const payload = { ...formData, quantity: Number(formData.quantity) };
+      const payload = {
+        ...formData,
+        quantity: Number(formData.quantity),
+        totalCost: calculateTotalCost(),
+      };
       let res;
       if (editingId) {
         res = await axios.put(`${apiUrl}/api/dispatch-delivery/${editingId}`, payload);
@@ -76,29 +92,17 @@ const DispatchDelivery = ({ apiUrl }) => {
         setSuccessMsg("Delivery recorded successfully!");
       }
       setFormData({
-        item: "",
-        quantity: "",
-        date: "",
-        customer: "",
-        driver: "",
-        vehicle: "",
-        tollFees: 0,
-        fuelCost: 0,
-        driverPerDiem: 0,
-        otherStaff: 0,
-        remarks: "",
+        item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "",
+        toll: 0, fuelCost: 0, driverPerDiem: 0, staffPerDiem: 0, remarks: ""
       });
       setEditingId(null);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to save delivery.");
-    } finally {
-      setLoading(false);
-    }
+    } catch {
+      setError("Failed to save delivery. Please try again.");
+    } finally { setLoading(false); }
   };
 
   const handleEdit = (delivery) => {
-    setFormData({ ...delivery });
+    setFormData(delivery);
     setEditingId(delivery._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -115,123 +119,115 @@ const DispatchDelivery = ({ apiUrl }) => {
   };
 
   const handlePrint = () => {
-    if (!printRef.current) return;
     const printContent = printRef.current.innerHTML;
     const win = window.open("", "_blank");
-    win.document.write(`
-      <html>
-      <head>
-        <title>Dispatch Deliveries</title>
-        <style>
-          table { width: 100%; border-collapse: collapse; font-family: Arial; }
-          th, td { border: 1px solid #333; padding: 8px; text-align: left; }
-          th { background-color: #1976d2; color: white; }
-        </style>
-      </head>
-      <body>${printContent}</body>
-      </html>
-    `);
+    win.document.write(`<html><head><title>Dispatch Deliveries</title></head><body>${printContent}</body></html>`);
     win.document.close();
     win.print();
   };
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <h2 className="text-xl font-bold mb-4">🚚 Dispatch & Delivery</h2>
+    <Box className="p-4 max-w-6xl mx-auto">
+      <Typography variant="h5" className="mb-4 font-bold">🚚 Dispatch & Delivery</Typography>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-6">
-        {[
-          { name:"item", type:"text", placeholder:"Item" },
-          { name:"quantity", type:"number", placeholder:"Quantity" },
-          { name:"date", type:"date", placeholder:"Date" },
-          { name:"customer", type:"text", placeholder:"Customer" },
-          { name:"driver", type:"text", placeholder:"Driver" },
-          { name:"vehicle", type:"text", placeholder:"Vehicle" },
-          { name:"tollFees", type:"number", placeholder:"Toll Fees" },
-          { name:"fuelCost", type:"number", placeholder:"Fuel Cost" },
-          { name:"driverPerDiem", type:"number", placeholder:"Driver Per Diem" },
-          { name:"otherStaff", type:"number", placeholder:"Other Staff Cost" },
-        ].map(f => (
-          <input
-            key={f.name}
-            type={f.type}
-            name={f.name}
-            value={formData[f.name]}
-            placeholder={f.placeholder}
-            onChange={handleChange}
-            className="p-2 border rounded"
-          />
-        ))}
-        <input
-          type="number"
-          name="totalCost"
-          value={totalCost}
-          readOnly
-          placeholder="Total Cost"
-          className="p-2 border rounded bg-gray-100"
-        />
-        <input
-          type="text"
-          name="remarks"
-          value={formData.remarks}
-          placeholder="Remarks"
-          onChange={handleChange}
-          className="p-2 border rounded col-span-1 md:col-span-6"
-        />
-        <button
-          type="submit"
-          className="col-span-1 md:col-span-6 bg-blue-600 text-white py-2 rounded disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? "Saving..." : editingId ? "✏️ Update Delivery" : "➕ Record Delivery"}
-        </button>
-      </form>
-
-      {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
-      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
-
-      {/* Table */}
-      <div className="overflow-x-auto border rounded" ref={printRef}>
-        <table className="w-full text-left text-sm">
-          <thead className="bg-blue-600 text-white">
-            <tr>
-              {["Item","Quantity","Date","Customer","Driver","Vehicle","Toll","Fuel","Driver Per Diem","Other Staff","Total Cost","Remarks","Actions"].map(h => (
-                <th key={h} className="p-2 border">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {deliveries.length === 0 ? (
-              <tr>
-                <td colSpan="13" className="p-4 text-center text-gray-500">No deliveries recorded.</td>
-              </tr>
-            ) : deliveries.map(d => (
-              <tr key={d._id} className="hover:bg-gray-50">
-                <td className="p-2 border">{d.item}</td>
-                <td className="p-2 border">{d.quantity}</td>
-                <td className="p-2 border">{new Date(d.date).toLocaleDateString()}</td>
-                <td className="p-2 border">{d.customer}</td>
-                <td className="p-2 border">{d.driver}</td>
-                <td className="p-2 border">{d.vehicle}</td>
-                <td className="p-2 border">{d.tollFees}</td>
-                <td className="p-2 border">{d.fuelCost}</td>
-                <td className="p-2 border">{d.driverPerDiem}</td>
-                <td className="p-2 border">{d.otherStaff}</td>
-                <td className="p-2 border">{d.tollFees + d.fuelCost + d.driverPerDiem + d.otherStaff}</td>
-                <td className="p-2 border">{d.remarks || "-"}</td>
-                <td className="p-2 border space-x-1">
-                  <IconButton onClick={() => handleEdit(d)} color="primary" size="small"><Edit fontSize="small" /></IconButton>
-                  <IconButton onClick={() => handleDelete(d._id)} color="error" size="small"><Delete fontSize="small" /></IconButton>
-                </td>
-              </tr>
+      <Paper elevation={3} className="p-4 mb-6">
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
+            {["item","quantity","date","customer","driver","vehicle"].map(f => (
+              <Grid item xs={12} md={4} key={f}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type={f==="quantity"?"number":f==="date"?"date":"text"}
+                  label={f.charAt(0).toUpperCase()+f.slice(1)}
+                  name={f}
+                  value={formData[f]}
+                  onChange={handleChange}
+                  required
+                />
+              </Grid>
             ))}
-          </tbody>
-        </table>
-      </div>
+            {["toll","fuelCost","driverPerDiem","staffPerDiem"].map(f => (
+              <Grid item xs={12} md={3} key={f}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label={f.replace(/([A-Z])/g," $1")}
+                  name={f}
+                  value={formData[f]}
+                  onChange={handleChange}
+                  InputProps={{ inputProps: { min: 0 } }}
+                />
+              </Grid>
+            ))}
+            <Grid item xs={12} md={12}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Remarks"
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading}>
+                {loading ? "Saving..." : editingId ? "Update Delivery" : "Record Delivery"}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+        {error && <Typography className="text-red-600 mt-2">{error}</Typography>}
+        {successMsg && <Typography className="text-green-600 mt-2">{successMsg}</Typography>}
+      </Paper>
 
-      <button onClick={handlePrint} className="mt-3 bg-gray-600 text-white py-1 px-3 rounded">🖨 Print Table Only</button>
-    </div>
+      <Box className="mb-4 flex justify-end">
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print Table</Button>
+      </Box>
+
+      <TableContainer component={Paper} ref={printRef}>
+        <Table size="small">
+          <TableHead className="bg-gray-100">
+            <TableRow>
+              {["Item","Quantity","Date","Customer","Driver","Vehicle","Toll","Fuel","Driver Per Diem","Staff Per Diem","Total Cost","Remarks","Actions"].map(h => (
+                <TableCell key={h}>{h}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {deliveries.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={13} align="center">No deliveries recorded.</TableCell>
+              </TableRow>
+            ) : deliveries.map((d,i) => (
+              <TableRow key={d._id} hover className={i%2===0?"bg-gray-50":""}>
+                <TableCell>{d.item}</TableCell>
+                <TableCell>{d.quantity}</TableCell>
+                <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
+                <TableCell>{d.customer}</TableCell>
+                <TableCell>{d.driver}</TableCell>
+                <TableCell>{d.vehicle}</TableCell>
+                <TableCell>{d.toll}</TableCell>
+                <TableCell>{d.fuelCost}</TableCell>
+                <TableCell>{d.driverPerDiem}</TableCell>
+                <TableCell>{d.staffPerDiem}</TableCell>
+                <TableCell>{d.totalCost}</TableCell>
+                <TableCell>{d.remarks || "-"}</TableCell>
+                <TableCell>
+                  <Tooltip title="Edit">
+                    <IconButton onClick={() => handleEdit(d)} size="small"><Edit /></IconButton>
+                  </Tooltip>
+                  <Tooltip title="Delete">
+                    <IconButton onClick={() => handleDelete(d._id)} size="small"><Delete /></IconButton>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 };
 
