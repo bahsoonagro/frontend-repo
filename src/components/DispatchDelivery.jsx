@@ -1,66 +1,50 @@
-// DispatchDelivery.jsx
+// src/components/DispatchDelivery.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  TextField,
-  Button,
-  MenuItem,
-  Select,
-  InputLabel,
-  FormControl,
-  IconButton,
-  Tooltip,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Paper,
-} from "@mui/material";
-import { Add, Delete } from "@mui/icons-material";
+import { Button, IconButton, Tooltip, TextField, MenuItem } from "@mui/material";
+import { Delete, Edit, Print } from "@mui/icons-material";
 
-const DispatchDelivery = ({ apiUrl, finishedProducts }) => {
+const TOLL_FEES = [
+  { label: "Group 1: Kekeh (Tricycles)", fee: 3 },
+  { label: "Group 2: Taxis and Sedans", fee: 5 },
+  { label: "Group 3: SUVs, Pickup Jeeps, Mini Buses", fee: 10 },
+  { label: "Group 4: Coaches, Light Vans, Small Trucks", fee: 40 },
+  { label: "Group 5: Fuel Tankers (2 Axles)", fee: 250 },
+  { label: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", fee: 400 },
+  { label: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", fee: 600 },
+];
+
+const DispatchDelivery = ({ apiUrl }) => {
   const [formData, setFormData] = useState({
-    item: "",
-    quantity: "",
-    date: "",
-    customer: "",
-    driver: "",
-    vehicle: "",
-    tollGate: "",
-    fuelCost: "",
-    personnel: [],
+    item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "", tollFee: 0, fuelCost: 0
   });
-
+  const [personnel, setPersonnel] = useState([{ name: "", role: "", perDiem: 0 }]);
   const [deliveries, setDeliveries] = useState([]);
+  const [finishedProducts, setFinishedProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-
-  const TOLL_GATES = [
-    { category: "Group 1: Kekeh (Tricycles)", fee: 3 },
-    { category: "Group 2: Taxis and Sedans", fee: 5 },
-    { category: "Group 3: SUVs, Pickup Jeeps, Mini Buses", fee: 10 },
-    { category: "Group 4: Coaches, Light Vans, Small Trucks", fee: 40 },
-    { category: "Group 5: Fuel Tankers (2 Axles)", fee: 250 },
-    { category: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", fee: 400 },
-    { category: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", fee: 600 },
-  ];
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchDeliveries();
+    fetchFinishedProducts();
   }, [apiUrl]);
 
   const fetchDeliveries = async () => {
-    setLoading(true);
-    setError("");
     try {
       const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
       setDeliveries(res.data);
     } catch {
       setError("Failed to load deliveries.");
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchFinishedProducts = async () => {
+    try {
+      const res = await axios.get(`${apiUrl}/api/finished-products`);
+      setFinishedProducts(res.data);
+    } catch {
+      setError("Failed to load products.");
     }
   };
 
@@ -69,59 +53,57 @@ const DispatchDelivery = ({ apiUrl, finishedProducts }) => {
     setError(""); setSuccessMsg("");
   };
 
-  const addPersonnel = () => {
-    setFormData({ ...formData, personnel: [...formData.personnel, { name: "", role: "", perDiem: "" }] });
+  const handlePersonnelChange = (index, e) => {
+    const newPersonnel = [...personnel];
+    newPersonnel[index][e.target.name] = e.target.name === "perDiem" ? Number(e.target.value) : e.target.value;
+    setPersonnel(newPersonnel);
   };
 
-  const removePersonnel = (idx) => {
-    const updated = [...formData.personnel];
-    updated.splice(idx, 1);
-    setFormData({ ...formData, personnel: updated });
-  };
+  const addPersonnel = () => setPersonnel([...personnel, { name: "", role: "", perDiem: 0 }]);
+  const removePersonnel = (index) => setPersonnel(personnel.filter((_, i) => i !== index));
 
-  const handlePersonnelChange = (idx, field, value) => {
-    const updated = [...formData.personnel];
-    updated[idx][field] = value;
-    setFormData({ ...formData, personnel: updated });
-  };
+  const calculateTotalPerDiem = () => personnel.reduce((sum, p) => sum + Number(p.perDiem || 0), 0);
+  const calculateTotalCost = () => Number(formData.fuelCost || 0) + Number(formData.tollFee || 0) + calculateTotalPerDiem();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const requiredFields = ["item","quantity","date","customer","driver","vehicle","tollGate"];
-    for (const field of requiredFields) {
-      if (!formData[field]) { setError(`Please fill in ${field}.`); return; }
+    if (!formData.item || !formData.quantity || !formData.date || !formData.customer || !formData.driver || !formData.vehicle) {
+      setError("Please fill in all required fields.");
+      return;
     }
-    setLoading(true); setError(""); setSuccessMsg("");
     try {
-      const payload = { ...formData, quantity: Number(formData.quantity), fuelCost: Number(formData.fuelCost || 0) };
+      setLoading(true);
+      const payload = { ...formData, personnel, totalCost: calculateTotalCost() };
       const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
-      setDeliveries(prev => [res.data, ...prev]);
-      setSuccessMsg("Delivery recorded successfully!");
-      setFormData({ item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "", tollGate: "", fuelCost: "", personnel: [] });
+      setDeliveries([res.data, ...deliveries]);
+      setFormData({ item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "", tollFee: 0, fuelCost: 0 });
+      setPersonnel([{ name: "", role: "", perDiem: 0 }]);
+      setSuccessMsg("Dispatch recorded successfully!");
     } catch {
-      setError("Failed to save delivery. Please try again.");
+      setError("Failed to save dispatch. Try again.");
     } finally { setLoading(false); }
   };
 
-  const totalPerDiem = formData.personnel.reduce((sum, p) => sum + Number(p.perDiem || 0), 0);
-  const totalCost = Number(formData.fuelCost || 0) + Number(formData.tollGate || 0) + totalPerDiem;
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this dispatch?")) return;
+    try {
+      await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
+      setDeliveries(deliveries.filter(d => d._id !== id));
+    } catch {
+      setError("Failed to delete dispatch.");
+    }
+  };
 
   const handlePrint = () => {
-    const tableContent = document.getElementById("dispatch-table").outerHTML;
+    const printContent = document.getElementById("dispatch-table").outerHTML;
     const win = window.open("", "_blank");
-    win.document.write(`
-      <html>
-        <head>
-          <title>Dispatch Table</title>
-          <style>
-            body { font-family: Arial; padding: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid black; padding: 8px; text-align: left; }
-          </style>
-        </head>
-        <body>${tableContent}</body>
-      </html>
-    `);
+    win.document.write(`<html><head><title>Dispatch</title>
+      <style>
+        body { font-family: Arial; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+      </style>
+      </head><body>${printContent}</body></html>`);
     win.document.close();
     win.print();
   };
@@ -129,101 +111,76 @@ const DispatchDelivery = ({ apiUrl, finishedProducts }) => {
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <h2 className="text-xl font-bold mb-4 text-blue-600">🚚 Dispatch & Delivery</h2>
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Item Dropdown */}
-        <FormControl fullWidth size="small">
-          <InputLabel>Item</InputLabel>
-          <Select name="item" value={formData.item} onChange={handleChange}>
-            {finishedProducts.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-          </Select>
-        </FormControl>
 
-        <TextField label="Quantity" name="quantity" type="number" value={formData.quantity} onChange={handleChange} size="small" />
-        <TextField label="Date" name="date" type="date" value={formData.date} onChange={handleChange} size="small" InputLabelProps={{ shrink: true }} />
-        <TextField label="Customer" name="customer" value={formData.customer} onChange={handleChange} size="small" />
-        <TextField label="Driver" name="driver" value={formData.driver} onChange={handleChange} size="small" />
-        <TextField label="Vehicle" name="vehicle" value={formData.vehicle} onChange={handleChange} size="small" />
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <TextField select label="Item" name="item" value={formData.item} onChange={handleChange} required className="col-span-1 md:col-span-2">
+          {finishedProducts.map(p => <MenuItem key={p._id} value={p.productName}>{p.productName}</MenuItem>)}
+        </TextField>
+        <TextField type="number" label="Quantity" name="quantity" value={formData.quantity} onChange={handleChange} required className="col-span-1 md:col-span-1" />
+        <TextField type="date" label="Date" name="date" value={formData.date} onChange={handleChange} required className="col-span-1 md:col-span-1" />
+        <TextField label="Customer" name="customer" value={formData.customer} onChange={handleChange} required className="col-span-1 md:col-span-1" />
+        <TextField label="Driver" name="driver" value={formData.driver} onChange={handleChange} required className="col-span-1 md:col-span-1" />
+        <TextField label="Vehicle" name="vehicle" value={formData.vehicle} onChange={handleChange} required className="col-span-1 md:col-span-1" />
+        <TextField select label="Toll Fee" name="tollFee" value={formData.tollFee} onChange={handleChange} className="col-span-1 md:col-span-1">
+          {TOLL_FEES.map((t, i) => <MenuItem key={i} value={t.fee}>{t.label} ({t.fee} Le)</MenuItem>)}
+        </TextField>
+        <TextField type="number" label="Fuel Cost" name="fuelCost" value={formData.fuelCost} onChange={handleChange} className="col-span-1 md:col-span-1" />
 
-        {/* Toll Gate Dropdown */}
-        <FormControl fullWidth size="small">
-          <InputLabel>Toll Gate</InputLabel>
-          <Select name="tollGate" value={formData.tollGate} onChange={handleChange}>
-            {TOLL_GATES.map(t => <MenuItem key={t.category} value={t.fee}>{t.category} - {t.fee} Le</MenuItem>)}
-          </Select>
-        </FormControl>
-
-        <TextField label="Fuel Cost" name="fuelCost" type="number" value={formData.fuelCost} onChange={handleChange} size="small" />
-
-        {/* Dynamic Personnel */}
-        <div className="col-span-1 md:col-span-3">
-          <h4 className="font-semibold mb-2">Personnel on Board</h4>
-          {formData.personnel.map((p, idx) => (
-            <div key={idx} className="flex gap-2 mb-2">
-              <TextField label="Name" size="small" value={p.name} onChange={(e) => handlePersonnelChange(idx,"name",e.target.value)} />
-              <TextField label="Role" size="small" value={p.role} onChange={(e) => handlePersonnelChange(idx,"role",e.target.value)} />
-              <TextField label="Per Diem" size="small" type="number" value={p.perDiem} onChange={(e) => handlePersonnelChange(idx,"perDiem",e.target.value)} />
-              <IconButton color="error" onClick={() => removePersonnel(idx)}><Delete /></IconButton>
+        <div className="col-span-1 md:col-span-6 border p-2 rounded">
+          <h3 className="font-semibold mb-2">Personnel on Board</h3>
+          {personnel.map((p, i) => (
+            <div key={i} className="grid grid-cols-3 gap-2 mb-2 items-center">
+              <TextField label="Name" name="name" value={p.name} onChange={(e) => handlePersonnelChange(i, e)} />
+              <TextField label="Role" name="role" value={p.role} onChange={(e) => handlePersonnelChange(i, e)} />
+              <TextField type="number" label="Per Diem" name="perDiem" value={p.perDiem} onChange={(e) => handlePersonnelChange(i, e)} />
+              <IconButton color="error" onClick={() => removePersonnel(i)}>✖️</IconButton>
             </div>
           ))}
-          <Button startIcon={<Add />} onClick={addPersonnel} variant="outlined" size="small">Add Personnel</Button>
+          <Button variant="outlined" onClick={addPersonnel}>+ Add Personnel</Button>
         </div>
 
-        <div className="col-span-1 md:col-span-3">
-          <strong>Total Cost: </strong> {totalCost.toFixed(2)} Le
-        </div>
-
-        <Button type="submit" variant="contained" color="success" className="col-span-1 md:col-span-3">
-          {loading ? "Saving..." : "➕ Record Delivery"}
+        <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-6 mt-2">
+          {loading ? "Saving..." : "Record Dispatch"}
         </Button>
       </form>
 
-      {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
-      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
+      {error && <div className="text-red-600 font-semibold mb-2">{error}</div>}
+      {successMsg && <div className="text-green-600 font-semibold mb-2">{successMsg}</div>}
 
-      <Button onClick={handlePrint} className="mb-4 bg-gray-600 text-white py-1 px-3 rounded">🖨 Print Dispatch Table</Button>
+      <Button startIcon={<Print />} onClick={handlePrint} variant="contained" color="secondary" className="mb-2">🖨 Print Table</Button>
 
-      <Paper className="overflow-x-auto" id="dispatch-table">
-        <Table size="small">
-          <TableHead>
-            <TableRow className="bg-gray-100">
-              <TableCell>Item</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell>Driver</TableCell>
-              <TableCell>Vehicle</TableCell>
-              <TableCell>Toll Gate Fee</TableCell>
-              <TableCell>Fuel Cost</TableCell>
-              <TableCell>Personnel</TableCell>
-              <TableCell>Total Cost</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <div className="overflow-x-auto border rounded" id="dispatch-table">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              {["Item","Quantity","Date","Customer","Driver","Vehicle","Toll Fee","Fuel","Personnel","Total Cost","Actions"].map(h => <th key={h} className="p-2 border">{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
             {deliveries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center text-gray-500">No deliveries recorded.</TableCell>
-              </TableRow>
-            ) : deliveries.map(d => (
-              <TableRow key={d._id}>
-                <TableCell>{d.item}</TableCell>
-                <TableCell>{d.quantity}</TableCell>
-                <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
-                <TableCell>{d.customer}</TableCell>
-                <TableCell>{d.driver}</TableCell>
-                <TableCell>{d.vehicle}</TableCell>
-                <TableCell>{d.tollGate}</TableCell>
-                <TableCell>{d.fuelCost}</TableCell>
-                <TableCell>
-                  {d.personnel?.map((p,i) => <div key={i}>{p.name} ({p.role}) - {p.perDiem}</div>)}
-                </TableCell>
-                <TableCell>
-                  {d.fuelCost + d.tollGate + (d.personnel?.reduce((sum,p)=>sum + Number(p.perDiem||0),0) || 0)}
-                </TableCell>
-              </TableRow>
+              <tr><td colSpan="11" className="p-4 text-center text-gray-500">No dispatches recorded.</td></tr>
+            ) : deliveries.map((d, i) => (
+              <tr key={d._id} className="hover:bg-gray-50">
+                <td className="p-2 border">{d.item}</td>
+                <td className="p-2 border">{d.quantity}</td>
+                <td className="p-2 border">{new Date(d.date).toLocaleDateString()}</td>
+                <td className="p-2 border">{d.customer}</td>
+                <td className="p-2 border">{d.driver}</td>
+                <td className="p-2 border">{d.vehicle}</td>
+                <td className="p-2 border">{d.tollFee}</td>
+                <td className="p-2 border">{d.fuelCost}</td>
+                <td className="p-2 border">
+                  {d.personnel?.map((p, idx) => `${p.name} (${p.role}, ${p.perDiem})`).join(", ")}
+                </td>
+                <td className="p-2 border">{d.totalCost}</td>
+                <td className="p-2 border space-x-2">
+                  <Button color="error" size="small" onClick={() => handleDelete(d._id)}>Delete</Button>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
-      </Paper>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
