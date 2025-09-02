@@ -1,33 +1,62 @@
 // src/components/DispatchDelivery.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Button, IconButton, Tooltip, TextField, MenuItem } from "@mui/material";
-import { Delete, Edit, Print } from "@mui/icons-material";
+import {
+  Box,
+  Button,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  TextField,
+  Checkbox,
+  ListItemText,
+  OutlinedInput,
+} from "@mui/material";
 
-const TOLL_FEES = [
-  { label: "Group 1: Kekeh (Tricycles)", fee: 3 },
-  { label: "Group 2: Taxis and Sedans", fee: 5 },
-  { label: "Group 3: SUVs, Pickup Jeeps, Mini Buses", fee: 10 },
-  { label: "Group 4: Coaches, Light Vans, Small Trucks", fee: 40 },
-  { label: "Group 5: Fuel Tankers (2 Axles)", fee: 250 },
-  { label: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", fee: 400 },
-  { label: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", fee: 600 },
+const tollGroups = [
+  { group: "Group 1: Kekeh (Tricycles)", price: 3 },
+  { group: "Group 2: Taxis and Sedans", price: 5 },
+  { group: "Group 3: SUVs, Pickup Jeeps, Mini Buses", price: 10 },
+  { group: "Group 4: Coaches, Light Vans, Small Trucks", price: 40 },
+  { group: "Group 5: Fuel Tankers (2 Axles)", price: 250 },
+  { group: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", price: 400 },
+  { group: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", price: 600 },
 ];
 
-const DispatchDelivery = ({ apiUrl }) => {
+const itemsList = [
+  "Bennimix 50g",
+  "Bennimix 400g",
+  "Pikinmix 500g",
+  "Pikinmix 1kg",
+  "Pikinmix 2kg",
+  "Supermix 50g",
+  "Pikinmix 4kg",
+  "Pikinmix 5kg",
+];
+
+export default function DispatchDelivery({ apiUrl, personnelList }) {
   const [formData, setFormData] = useState({
-    item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "", tollFee: 0, fuelCost: 0
+    item: "",
+    quantity: "",
+    date: "",
+    customer: "",
+    driver: "",
+    vehicle: "",
+    tollGroup: "",
+    fuelCost: 0,
+    perDiem: 0,
+    personnel: [],
+    totalCost: 0,
+    remarks: "",
   });
-  const [personnel, setPersonnel] = useState([{ name: "", role: "", perDiem: 0 }]);
   const [deliveries, setDeliveries] = useState([]);
-  const [finishedProducts, setFinishedProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
     fetchDeliveries();
-    fetchFinishedProducts();
   }, [apiUrl]);
 
   const fetchDeliveries = async () => {
@@ -39,150 +68,169 @@ const DispatchDelivery = ({ apiUrl }) => {
     }
   };
 
-  const fetchFinishedProducts = async () => {
-    try {
-      const res = await axios.get(`${apiUrl}/api/finished-products`);
-      setFinishedProducts(res.data);
-    } catch {
-      setError("Failed to load products.");
-    }
-  };
-
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(""); setSuccessMsg("");
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePersonnelChange = (index, e) => {
-    const newPersonnel = [...personnel];
-    newPersonnel[index][e.target.name] = e.target.name === "perDiem" ? Number(e.target.value) : e.target.value;
-    setPersonnel(newPersonnel);
+  const handlePersonnelChange = (e) => {
+    setFormData((prev) => ({ ...prev, personnel: e.target.value }));
   };
 
-  const addPersonnel = () => setPersonnel([...personnel, { name: "", role: "", perDiem: 0 }]);
-  const removePersonnel = (index) => setPersonnel(personnel.filter((_, i) => i !== index));
-
-  const calculateTotalPerDiem = () => personnel.reduce((sum, p) => sum + Number(p.perDiem || 0), 0);
-  const calculateTotalCost = () => Number(formData.fuelCost || 0) + Number(formData.tollFee || 0) + calculateTotalPerDiem();
+  // Auto calculate total cost
+  useEffect(() => {
+    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
+    const fuelCost = parseFloat(formData.fuelCost) || 0;
+    const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
+    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
+  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.item || !formData.quantity || !formData.date || !formData.customer || !formData.driver || !formData.vehicle) {
-      setError("Please fill in all required fields.");
-      return;
+    const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
+    for (const f of requiredFields) {
+      if (!formData[f]) {
+        setError(`Please fill in ${f}`);
+        return;
+      }
     }
+
     try {
       setLoading(true);
-      const payload = { ...formData, personnel, totalCost: calculateTotalCost() };
+      const payload = {
+        ...formData,
+        quantity: Number(formData.quantity),
+        fuelCost: Number(formData.fuelCost),
+        perDiem: Number(formData.perDiem),
+        totalCost: Number(formData.totalCost),
+      };
       const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
-      setDeliveries([res.data, ...deliveries]);
-      setFormData({ item: "", quantity: "", date: "", customer: "", driver: "", vehicle: "", tollFee: 0, fuelCost: 0 });
-      setPersonnel([{ name: "", role: "", perDiem: 0 }]);
-      setSuccessMsg("Dispatch recorded successfully!");
+      setDeliveries((prev) => [res.data, ...prev]);
+      setSuccessMsg("Delivery recorded successfully!");
+      setFormData({
+        item: "",
+        quantity: "",
+        date: "",
+        customer: "",
+        driver: "",
+        vehicle: "",
+        tollGroup: "",
+        fuelCost: 0,
+        perDiem: 0,
+        personnel: [],
+        totalCost: 0,
+        remarks: "",
+      });
+      setError("");
     } catch {
-      setError("Failed to save dispatch. Try again.");
-    } finally { setLoading(false); }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this dispatch?")) return;
-    try {
-      await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
-      setDeliveries(deliveries.filter(d => d._id !== id));
-    } catch {
-      setError("Failed to delete dispatch.");
+      setError("Failed to save delivery.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePrint = () => {
-    const printContent = document.getElementById("dispatch-table").outerHTML;
+    const table = document.getElementById("dispatch-table").outerHTML;
     const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Dispatch</title>
+    win.document.write(`<html><head><title>Dispatch Deliveries</title>
       <style>
-        body { font-family: Arial; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; font-family: Arial; }
         th, td { border: 1px solid black; padding: 8px; text-align: left; }
-      </style>
-      </head><body>${printContent}</body></html>`);
+        th { background-color: #e2e8f0; }
+      </style></head><body>${table}</body></html>`);
     win.document.close();
     win.print();
   };
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <Box className="p-4 max-w-6xl mx-auto">
       <h2 className="text-xl font-bold mb-4 text-blue-600">🚚 Dispatch & Delivery</h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-        <TextField select label="Item" name="item" value={formData.item} onChange={handleChange} required className="col-span-1 md:col-span-2">
-          {finishedProducts.map(p => <MenuItem key={p._id} value={p.productName}>{p.productName}</MenuItem>)}
-        </TextField>
-        <TextField type="number" label="Quantity" name="quantity" value={formData.quantity} onChange={handleChange} required className="col-span-1 md:col-span-1" />
-        <TextField type="date" label="Date" name="date" value={formData.date} onChange={handleChange} required className="col-span-1 md:col-span-1" />
-        <TextField label="Customer" name="customer" value={formData.customer} onChange={handleChange} required className="col-span-1 md:col-span-1" />
-        <TextField label="Driver" name="driver" value={formData.driver} onChange={handleChange} required className="col-span-1 md:col-span-1" />
-        <TextField label="Vehicle" name="vehicle" value={formData.vehicle} onChange={handleChange} required className="col-span-1 md:col-span-1" />
-        <TextField select label="Toll Fee" name="tollFee" value={formData.tollFee} onChange={handleChange} className="col-span-1 md:col-span-1">
-          {TOLL_FEES.map((t, i) => <MenuItem key={i} value={t.fee}>{t.label} ({t.fee} Le)</MenuItem>)}
-        </TextField>
-        <TextField type="number" label="Fuel Cost" name="fuelCost" value={formData.fuelCost} onChange={handleChange} className="col-span-1 md:col-span-1" />
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <FormControl fullWidth>
+          <InputLabel id="item-label">Item</InputLabel>
+          <Select labelId="item-label" name="item" value={formData.item} onChange={handleChange} input={<OutlinedInput label="Item" />}>
+            {itemsList.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+          </Select>
+        </FormControl>
 
-        <div className="col-span-1 md:col-span-6 border p-2 rounded">
-          <h3 className="font-semibold mb-2">Personnel on Board</h3>
-          {personnel.map((p, i) => (
-            <div key={i} className="grid grid-cols-3 gap-2 mb-2 items-center">
-              <TextField label="Name" name="name" value={p.name} onChange={(e) => handlePersonnelChange(i, e)} />
-              <TextField label="Role" name="role" value={p.role} onChange={(e) => handlePersonnelChange(i, e)} />
-              <TextField type="number" label="Per Diem" name="perDiem" value={p.perDiem} onChange={(e) => handlePersonnelChange(i, e)} />
-              <IconButton color="error" onClick={() => removePersonnel(i)}>✖️</IconButton>
-            </div>
-          ))}
-          <Button variant="outlined" onClick={addPersonnel}>+ Add Personnel</Button>
-        </div>
+        <TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth />
+        <TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
+        <TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth />
+        <TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth />
+        <TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth />
 
-        <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-6 mt-2">
-          {loading ? "Saving..." : "Record Dispatch"}
+        <FormControl fullWidth>
+          <InputLabel id="toll-label">Toll Group</InputLabel>
+          <Select labelId="toll-label" name="tollGroup" value={formData.tollGroup} onChange={handleChange} input={<OutlinedInput label="Toll Group" />}>
+            {tollGroups.map((g) => <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>)}
+          </Select>
+        </FormControl>
+
+        <TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth />
+        <TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth />
+
+        <FormControl fullWidth>
+          <InputLabel id="personnel-label">Personnel</InputLabel>
+          <Select
+            labelId="personnel-label"
+            multiple
+            value={formData.personnel}
+            onChange={handlePersonnelChange}
+            input={<OutlinedInput label="Personnel" />}
+            renderValue={(selected) => selected.join(", ")}
+          >
+            {personnelList.map((p) => (
+              <MenuItem key={p} value={p}>
+                <Checkbox checked={formData.personnel.includes(p)} />
+                <ListItemText primary={p} />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth />
+        <TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
+
+        <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-3">
+          {loading ? "Saving..." : "➕ Record Delivery"}
         </Button>
       </form>
 
-      {error && <div className="text-red-600 font-semibold mb-2">{error}</div>}
-      {successMsg && <div className="text-green-600 font-semibold mb-2">{successMsg}</div>}
+      {error && <Box className="mb-4 text-red-600 font-semibold">{error}</Box>}
+      {successMsg && <Box className="mb-4 text-green-600 font-semibold">{successMsg}</Box>}
 
-      <Button startIcon={<Print />} onClick={handlePrint} variant="contained" color="secondary" className="mb-2">🖨 Print Table</Button>
-
-      <div className="overflow-x-auto border rounded" id="dispatch-table">
+      <Box className="overflow-x-auto border rounded" id="dispatch-table">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-100">
+          <thead>
             <tr>
-              {["Item","Quantity","Date","Customer","Driver","Vehicle","Toll Fee","Fuel","Personnel","Total Cost","Actions"].map(h => <th key={h} className="p-2 border">{h}</th>)}
+              {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Fuel","Per Diem","Personnel","Total Cost","Remarks"].map((h) => <th key={h} className="p-2 border">{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {deliveries.length === 0 ? (
-              <tr><td colSpan="11" className="p-4 text-center text-gray-500">No dispatches recorded.</td></tr>
+              <tr><td colSpan="12" className="p-4 text-center text-gray-500">No deliveries recorded.</td></tr>
             ) : deliveries.map((d, i) => (
-              <tr key={d._id} className="hover:bg-gray-50">
+              <tr key={d._id} className={i%2===0 ? "bg-gray-50" : ""}>
                 <td className="p-2 border">{d.item}</td>
                 <td className="p-2 border">{d.quantity}</td>
                 <td className="p-2 border">{new Date(d.date).toLocaleDateString()}</td>
                 <td className="p-2 border">{d.customer}</td>
                 <td className="p-2 border">{d.driver}</td>
                 <td className="p-2 border">{d.vehicle}</td>
-                <td className="p-2 border">{d.tollFee}</td>
+                <td className="p-2 border">{d.tollGroup}</td>
                 <td className="p-2 border">{d.fuelCost}</td>
-                <td className="p-2 border">
-                  {d.personnel?.map((p, idx) => `${p.name} (${p.role}, ${p.perDiem})`).join(", ")}
-                </td>
+                <td className="p-2 border">{d.perDiem}</td>
+                <td className="p-2 border">{d.personnel.join(", ")}</td>
                 <td className="p-2 border">{d.totalCost}</td>
-                <td className="p-2 border space-x-2">
-                  <Button color="error" size="small" onClick={() => handleDelete(d._id)}>Delete</Button>
-                </td>
+                <td className="p-2 border">{d.remarks || "-"}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-};
+      </Box>
 
-export default DispatchDelivery;
+      <Button variant="outlined" onClick={handlePrint} className="mt-4 bg-gray-600 text-white">🖨️ Print Table</Button>
+    </Box>
+  );
+}
