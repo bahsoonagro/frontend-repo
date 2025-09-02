@@ -1,236 +1,338 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useRef } from "react";
+import {
+  Box,
+  Button,
+  Grid,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  Paper,
+  Typography,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import { Delete, Print, FileDownload } from "@mui/icons-material";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
-const StockMovements = ({ apiUrl }) => {
+const FINISHED_PRODUCTS = [
+  "Bennimix 400g",
+  "Bennimix 50g",
+  "Pikinmix 500g",
+  "Pikinmix 1kg",
+  "Pikinmix 2kg",
+  "Pikinmix (generic)",
+  "Supermix 50g",
+  "Pikinmix 4kg",
+  "Pikinmix 5kg",
+];
+
+const INITIAL_STOCK = [
+  { productName: "Bennimix 50g", openingStock: 100, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Bennimix 400g", openingStock: 200, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 2kg", openingStock: 1089, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 1kg", openingStock: 1965, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Supermix 50g", openingStock: 14, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 4kg", openingStock: 20, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 5kg", openingStock: 2, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 500g", openingStock: 25, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+];
+
+export default function FinishedProducts() {
   const [formData, setFormData] = useState({
-    requisitionNo: "",
-    dateTime: "",
-    rawMaterial: "",
-    batchNumber: "",
-    quantityBags: "",
-    weightRemovedKg: "",
-    weightReceivedKg: "",
-    storeman: "",
-    cleaningReceiver: "",
+    productName: "",
+    openingStock: "",
+    stockIn: 0,
+    stockOut: 0,
+    storeKeeper: "",
     remarks: "",
   });
 
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [editingId, setEditingId] = useState(null);
-
-  useEffect(() => {
-    fetchMovements();
-  }, [apiUrl]);
-
-  const fetchMovements = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await axios.get(`${apiUrl}/api/stock-movements`);
-      setMovements(res.data);
-    } catch (err) {
-      setError("Failed to load stock movements.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [products, setProducts] = useState(INITIAL_STOCK);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const printRef = useRef();
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError("");
-    setSuccessMsg("");
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSave = () => {
+    if (!formData.productName || formData.openingStock === "") return;
 
-    const requiredFields = [
-      "requisitionNo",
-      "dateTime",
-      "rawMaterial",
-      "batchNumber",
-      "quantityBags",
-      "weightRemovedKg",
-      "weightReceivedKg",
-      "storeman",
-      "cleaningReceiver",
-    ];
-
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        setError(`Please fill in the ${field}.`);
-        return;
-      }
+    if (editingIndex !== null) {
+      const updated = [...products];
+      updated[editingIndex] = { ...formData };
+      setProducts(updated);
+      setEditingIndex(null);
+    } else {
+      setProducts([...products, formData]);
     }
 
-    setLoading(true);
-    setError("");
-    setSuccessMsg("");
-
-    try {
-      const payload = {
-        requisitionNo: formData.requisitionNo,
-        dateTime: formData.dateTime,
-        rawMaterial: formData.rawMaterial,
-        batchNumber: formData.batchNumber,
-        quantityBags: Number(formData.quantityBags),
-        weightRemovedKg: Number(formData.weightRemovedKg),
-        weightReceivedKg: Number(formData.weightReceivedKg),
-        storeman: formData.storeman,
-        cleaningReceiver: formData.cleaningReceiver,
-        remarks: formData.remarks,
-        updateInventory: true, // optional: ensures inventory is updated in backend
-      };
-
-      let res;
-      if (editingId) {
-        res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
-        setMovements((prev) =>
-          prev.map((m) => (m._id === editingId ? res.data : m))
-        );
-        setSuccessMsg("Stock movement updated successfully!");
-      } else {
-        res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
-        setMovements((prev) => [res.data.movement, ...prev]); // note: backend returns { movement, inventory }
-        setSuccessMsg("Stock movement recorded successfully!");
-      }
-
-      setFormData({
-        requisitionNo: "",
-        dateTime: "",
-        rawMaterial: "",
-        batchNumber: "",
-        quantityBags: "",
-        weightRemovedKg: "",
-        weightReceivedKg: "",
-        storeman: "",
-        cleaningReceiver: "",
-        remarks: "",
-      });
-      setEditingId(null);
-    } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to save stock movement. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = (movement) => {
     setFormData({
-      requisitionNo: movement.requisitionNo,
-      dateTime: movement.dateTime,
-      rawMaterial: movement.rawMaterial,
-      batchNumber: movement.batchNumber,
-      quantityBags: movement.quantityBags || "",
-      weightRemovedKg: movement.weightRemovedKg || "",
-      weightReceivedKg: movement.weightReceivedKg || "",
-      storeman: movement.storeman,
-      cleaningReceiver: movement.cleaningReceiver,
-      remarks: movement.notes || "",
+      productName: "",
+      openingStock: "",
+      stockIn: 0,
+      stockOut: 0,
+      storeKeeper: "",
+      remarks: "",
     });
-    setEditingId(movement._id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this movement?")) return;
-    try {
-      await axios.delete(`${apiUrl}/api/stock-movements/${id}`);
-      setMovements((prev) => prev.filter((m) => m._id !== id));
-      setSuccessMsg("Stock movement deleted successfully!");
-    } catch (err) {
-      setError("Failed to delete movement.");
-    }
+  const handleDelete = (index) => {
+    setProducts(products.filter((_, i) => i !== index));
+    if (editingIndex === index) setEditingIndex(null);
+  };
+
+  const handleEdit = (index) => {
+    setFormData(products[index]);
+    setEditingIndex(index);
+  };
+
+  const calculateClosing = (product) =>
+    Number(product.openingStock || 0) + Number(product.stockIn || 0) - Number(product.stockOut || 0);
+
+  const totals = products.reduce(
+    (acc, p) => {
+      acc.openingStock += Number(p.openingStock || 0);
+      acc.stockIn += Number(p.stockIn || 0);
+      acc.stockOut += Number(p.stockOut || 0);
+      acc.closing += calculateClosing(p);
+      return acc;
+    },
+    { openingStock: 0, stockIn: 0, stockOut: 0, closing: 0 }
+  );
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      products.map((p, i) => ({
+        "S/N": i + 1,
+        "Stock Item": p.productName,
+        "Opening Stock": p.openingStock,
+        "Stock In": p.stockIn,
+        "Total Qty": Number(p.openingStock) + Number(p.stockIn),
+        "Stock Out": p.stockOut,
+        "Closing Stock": calculateClosing(p),
+        "Store Keeper": p.storeKeeper,
+        "Remarks": p.remarks,
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Finished Products");
+    XLSX.writeFile(wb, "FinishedProducts.xlsx");
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Bennimix Food Company - Finished Products Inventory", 14, 15);
+    doc.autoTable({
+      startY: 20,
+      head: [["S/N","Stock Item","Opening Stock","Stock In","Total Qty","Stock Out","Closing Stock","Store Keeper","Remarks"]],
+      body: products.map((p, i) => [
+        i + 1,
+        p.productName,
+        p.openingStock,
+        p.stockIn,
+        Number(p.openingStock) + Number(p.stockIn),
+        p.stockOut,
+        calculateClosing(p),
+        p.storeKeeper,
+        p.remarks
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [25, 118, 210], textColor: 255 },
+    });
+    doc.save("FinishedProducts.pdf");
   };
 
   const handlePrint = () => {
-    const printContent = document.getElementById("stock-table").outerHTML;
-    const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Stock Movements</title></head><body>${printContent}</body></html>`);
-    win.document.close();
-    win.print();
+    const printContent = printRef.current.innerHTML;
+    const WinPrint = window.open("", "", "width=900,height=650");
+    WinPrint.document.write("<html><head><title>Finished Product Inventory</title>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
+    WinPrint.document.write("</head><body>");
+    WinPrint.document.write(printContent);
+    WinPrint.document.write("</body></html>");
+    WinPrint.document.close();
+    WinPrint.focus();
+    WinPrint.print();
   };
 
-  const formatNum = (val) => (val != null ? Number(val).toFixed(2) : "0.00");
-
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <h2 className="text-xl font-bold mb-4">🔁 Stock Movements</h2>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3, color: "#1976d2" }}>
+        Finished Products Inventory
+      </Typography>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <input type="text" name="requisitionNo" placeholder="Requisition No" value={formData.requisitionNo} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="datetime-local" name="dateTime" value={formData.dateTime} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="text" name="rawMaterial" placeholder="Raw Material" value={formData.rawMaterial} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="text" name="batchNumber" placeholder="Batch Number" value={formData.batchNumber} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="number" name="quantityBags" placeholder="Quantity (Bags)" value={formData.quantityBags} onChange={handleChange} min="1" className="p-2 border rounded" required />
-        <input type="number" name="weightRemovedKg" placeholder="Weight Removed (Kg)" value={formData.weightRemovedKg} onChange={handleChange} min="0" step="0.01" className="p-2 border rounded" required />
-        <input type="number" name="weightReceivedKg" placeholder="Weight Received (Kg)" value={formData.weightReceivedKg} onChange={handleChange} min="0" step="0.01" className="p-2 border rounded" required />
-        <input type="text" name="storeman" placeholder="Storeman Name" value={formData.storeman} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="text" name="cleaningReceiver" placeholder="Cleaning Receiver" value={formData.cleaningReceiver} onChange={handleChange} className="p-2 border rounded" required />
-        <input type="text" name="remarks" placeholder="Remarks (optional)" value={formData.remarks} onChange={handleChange} className="p-2 border rounded col-span-1 md:col-span-3" />
-        <button type="submit" className="col-span-1 md:col-span-3 bg-blue-600 text-white py-2 rounded disabled:opacity-60" disabled={loading}>
-          {loading ? "Saving..." : editingId ? "✏️ Update Movement" : "➕ Record Movement"}
-        </button>
-      </form>
+      {/* Input Form */}
+      <Paper elevation={6} sx={{ p: 2, mb: 4, borderRadius: 3 }}>
+        <Grid container spacing={1}>
+          <Grid item xs={6} sm={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Product</InputLabel>
+              <Select
+                name="productName"
+                value={formData.productName}
+                onChange={handleChange}
+                label="Product"
+              >
+                {FINISHED_PRODUCTS.map((p, i) => (
+                  <MenuItem key={i} value={p}>{p}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              name="openingStock"
+              label="Opening Stock"
+              type="number"
+              size="small"
+              value={formData.openingStock}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              name="stockIn"
+              label="Stock In"
+              type="number"
+              size="small"
+              value={formData.stockIn}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              name="stockOut"
+              label="Stock Out"
+              type="number"
+              size="small"
+              value={formData.stockOut}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField
+              name="storeKeeper"
+              label="Store Keeper"
+              size="small"
+              value={formData.storeKeeper}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <TextField
+              name="remarks"
+              label="Remarks"
+              size="small"
+              value={formData.remarks}
+              onChange={handleChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+            <Button variant="contained" color="success" onClick={handleSave}>
+              {editingIndex !== null ? "Update Product" : "Save Product"}
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
-      {error && <div className="mb-4 text-red-600 font-semibold">{error}</div>}
-      {successMsg && <div className="mb-4 text-green-600 font-semibold">{successMsg}</div>}
+      {/* Table + Print + Export */}
+      <Box mb={2} display="flex" gap={2}>
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
+          Print Table
+        </Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>
+          Export Excel
+        </Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>
+          Export PDF
+        </Button>
+      </Box>
 
-      <button onClick={handlePrint} className="mb-4 bg-gray-600 text-white py-1 px-3 rounded">🖨 Print Movements</button>
-
-      <div className="overflow-x-auto border rounded" id="stock-table">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">Req. No</th>
-              <th className="p-2 border">Date/Time</th>
-              <th className="p-2 border">Raw Material</th>
-              <th className="p-2 border">Batch</th>
-              <th className="p-2 border">Qty (Bags)</th>
-              <th className="p-2 border">Weight Removed (Kg)</th>
-              <th className="p-2 border">Weight Received (Kg)</th>
-              <th className="p-2 border">Storeman</th>
-              <th className="p-2 border">Cleaning Receiver</th>
-              <th className="p-2 border">Remarks</th>
-              <th className="p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.length === 0 ? (
+      <Box ref={printRef}>
+        <Paper elevation={3} sx={{ borderRadius: 3, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <td colSpan="11" className="p-4 text-center text-gray-500">
-                  No stock movements found.
-                </td>
+                <th style={thStyle}>S/N</th>
+                <th style={thStyle}>Stock Item</th>
+                <th style={thStyle}>Opening Stock</th>
+                <th style={thStyle}>Stock In</th>
+                <th style={thStyle}>Total Qty</th>
+                <th style={thStyle}>Stock Out</th>
+                <th style={thStyle}>Closing Stock</th>
+                <th style={thStyle}>Store Keeper</th>
+                <th style={thStyle}>Remarks</th>
+                <th style={thStyle}>Actions</th>
               </tr>
-            ) : (
-              movements.map((m) => (
-                <tr key={m._id} className="hover:bg-gray-50">
-                  <td className="p-2 border">{m.requisitionNo}</td>
-                  <td className="p-2 border">{new Date(m.dateTime).toLocaleString()}</td>
-                  <td className="p-2 border">{m.rawMaterial}</td>
-                  <td className="p-2 border">{m.batchNumber}</td>
-                  <td className="p-2 border">{m.quantityBags}</td>
-                  <td className="p-2 border">{formatNum(m.weightRemovedKg)}</td>
-                  <td className="p-2 border">{formatNum(m.weightReceivedKg)}</td>
-                  <td className="p-2 border">{m.storeman}</td>
-                  <td className="p-2 border">{m.cleaningReceiver}</td>
-                  <td className="p-2 border">{m.notes || "-"}</td>
-                  <td className="p-2 border space-x-2">
-                    <button onClick={() => handleEdit(m)} className="bg-yellow-400 text-white py-1 px-2 rounded">Edit</button>
-                    <button onClick={() => handleDelete(m._id)} className="bg-red-600 text-white py-1 px-2 rounded">Delete</button>
+            </thead>
+            <tbody>
+              {products.map((prod, i) => (
+                <tr
+                  key={i}
+                  style={{
+                    backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff",
+                  }}
+                >
+                  <td style={tdStyle}>{i + 1}</td>
+                  <td style={tdStyle}>{prod.productName}</td>
+                  <td style={tdStyle}>{prod.openingStock}</td>
+                  <td style={tdStyle}>{prod.stockIn}</td>
+                  <td style={tdStyle}>{Number(prod.openingStock) + Number(prod.stockIn)}</td>
+                  <td style={tdStyle}>{prod.stockOut}</td>
+                  <td style={tdStyle}>{calculateClosing(prod)}</td>
+                  <td style={tdStyle}>{prod.storeKeeper}</td>
+                  <td style={tdStyle}>{prod.remarks}</td>
+                  <td style={tdStyle}>
+                    <Tooltip title="Edit">
+                      <IconButton color="primary" size="small" onClick={() => handleEdit(i)}>
+                        ✏️
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton color="error" size="small" onClick={() => handleDelete(i)}>
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+              ))}
+              {products.length === 0 && (
+                <tr>
+                  <td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>
+                    No finished products found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
+              <tr>
+                <td style={tdStyle} colSpan={2}>Totals</td>
+                <td style={tdStyle}>{totals.openingStock}</td>
+                <td style={tdStyle}>{totals.stockIn}</td>
+                <td style={tdStyle}>{totals.openingStock + totals.stockIn}</td>
+                <td style={tdStyle}>{totals.stockOut}</td>
+                <td style={tdStyle}>{totals.closing}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          </table>
+        </Paper>
+      </Box>
+    </Box>
   );
-};
+}
 
-export default StockMovements;
+const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
