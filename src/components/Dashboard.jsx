@@ -13,6 +13,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+const Shimmer = () => (
+  <div className="animate-pulse space-y-2">
+    <div className="h-6 bg-gray-300 rounded w-1/3 mb-2"></div>
+    <div className="h-72 bg-gray-200 rounded"></div>
+  </div>
+);
+
 const Dashboard = ({ apiUrl }) => {
   const [rawMaterials, setRawMaterials] = useState([]);
   const [finishedProducts, setFinishedProducts] = useState([]);
@@ -25,12 +32,11 @@ const Dashboard = ({ apiUrl }) => {
   const [endDate, setEndDate] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("all");
 
-  // Fetch all data
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [rawRes, finishedRes, stockRes, dispatchRes] = await Promise.all([
-          axios.get(`${apiUrl}/api/raw-materials`),
+          axios.get(`${apiUrl}/api/raw-Materials`),
           axios.get(`${apiUrl}/api/finished-products`),
           axios.get(`${apiUrl}/api/stock-movements`),
           axios.get(`${apiUrl}/api/dispatch-delivery`),
@@ -40,6 +46,11 @@ const Dashboard = ({ apiUrl }) => {
         setFinishedProducts(finishedRes.data);
         setStockMovements(stockRes.data);
         setDispatches(dispatchRes.data);
+
+        console.log("Raw Materials:", rawRes.data);
+        console.log("Finished Products:", finishedRes.data);
+        console.log("Stock Movements:", stockRes.data);
+        console.log("Dispatches:", dispatchRes.data);
       } catch (err) {
         console.error(err);
         setError("Failed to load dashboard data.");
@@ -47,54 +58,48 @@ const Dashboard = ({ apiUrl }) => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [apiUrl]);
 
-  // Filter dispatches by date range
-  const filteredDispatches = dispatches
-    .filter(d => {
-      const date = new Date(d.date);
-      const afterStart = startDate ? date >= new Date(startDate) : true;
-      const beforeEnd = endDate ? date <= new Date(endDate) : true;
-      const matchesProduct =
-        selectedProduct === "all" ? true : d.item === selectedProduct;
-      return afterStart && beforeEnd && matchesProduct;
-    });
+  const filteredDispatches = dispatches.filter(d => {
+    const date = new Date(d.date);
+    const afterStart = startDate ? date >= new Date(startDate) : true;
+    const beforeEnd = endDate ? date <= new Date(endDate) : true;
+    const matchesProduct =
+      selectedProduct === "all" ? true : d.item === (d.item || selectedProduct);
+    return afterStart && beforeEnd && matchesProduct;
+  });
 
-  // Prepare data for charts
   const monthlyDispatch = filteredDispatches.reduce((acc, item) => {
+    if (!item.date || !item.quantity) return acc;
     const month = new Date(item.date).toLocaleString("default", { month: "short" });
     const existing = acc.find(d => d.month === month);
-    if (existing) {
-      existing.quantity += item.quantity;
-    } else {
-      acc.push({ month, quantity: item.quantity });
-    }
+    if (existing) existing.quantity += item.quantity;
+    else acc.push({ month, quantity: item.quantity });
     return acc;
   }, []);
 
   const finishedProductsData = finishedProducts.map(p => ({
-    name: p.name,
-    quantity: p.quantity,
+    name: p.name || p.productName || "Unnamed",
+    quantity: p.quantity || p.qty || 0,
   }));
 
   const stockMovementData = stockMovements.map(m => ({
-    item: m.item,
-    in: m.quantityIn || 0,
-    out: m.quantityOut || 0,
+    item: m.item || m.productName || "Unnamed",
+    in: m.quantityIn || m.qtyIn || 0,
+    out: m.quantityOut || m.qtyOut || 0,
   }));
 
   const rawMaterialData = rawMaterials.map(r => ({
-    name: r.name,
-    quantity: r.quantity,
+    name: r.name || r.rawMaterialName || "Unnamed",
+    quantity: r.quantity || r.qty || 0,
   }));
 
   const productOptions = Array.from(
-    new Set(dispatches.map(d => d.item))
+    new Set(dispatches.map(d => d.item || d.productName))
   );
 
-  if (loading) return <div className="p-4">Loading dashboard...</div>;
+  if (loading) return <div className="p-4 space-y-6"><Shimmer /><Shimmer /><Shimmer /><Shimmer /></div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
@@ -141,62 +146,70 @@ const Dashboard = ({ apiUrl }) => {
         {/* Dispatches Line Chart */}
         <div className="p-4 border rounded bg-white">
           <h3 className="font-bold mb-2">Monthly Dispatch Quantity</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyDispatch}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="quantity" stroke="#82ca9d" />
-            </LineChart>
-          </ResponsiveContainer>
+          {monthlyDispatch.length === 0 ? <p>No dispatch data available</p> :
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={monthlyDispatch}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="quantity" stroke="#82ca9d" />
+              </LineChart>
+            </ResponsiveContainer>
+          }
         </div>
 
         {/* Finished Products Bar Chart */}
         <div className="p-4 border rounded bg-white">
           <h3 className="font-bold mb-2">Finished Products Quantity</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={finishedProductsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="quantity" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
+          {finishedProductsData.length === 0 ? <p>No finished product data available</p> :
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={finishedProductsData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="quantity" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          }
         </div>
 
         {/* Stock Movements Bar Chart */}
         <div className="p-4 border rounded bg-white">
           <h3 className="font-bold mb-2">Stock Movements (In vs Out)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stockMovementData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="item" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="in" fill="#4ade80" />
-              <Bar dataKey="out" fill="#f87171" />
-            </BarChart>
-          </ResponsiveContainer>
+          {stockMovementData.length === 0 ? <p>No stock movement data available</p> :
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={stockMovementData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="item" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="in" fill="#4ade80" />
+                <Bar dataKey="out" fill="#f87171" />
+              </BarChart>
+            </ResponsiveContainer>
+          }
         </div>
 
         {/* Raw Materials Bar Chart */}
         <div className="p-4 border rounded bg-white">
           <h3 className="font-bold mb-2">Raw Materials Quantity</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={rawMaterialData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="quantity" fill="#facc15" />
-            </BarChart>
-          </ResponsiveContainer>
+          {rawMaterialData.length === 0 ? <p>No raw material data available</p> :
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={rawMaterialData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="quantity" fill="#facc15" />
+              </BarChart>
+            </ResponsiveContainer>
+          }
         </div>
 
       </div>
