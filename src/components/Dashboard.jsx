@@ -205,4 +205,3 @@ const Dashboard = ({ apiUrl }) => {
 };
 
 export default Dashboard;
-
