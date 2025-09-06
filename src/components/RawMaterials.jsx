@@ -12,6 +12,8 @@ import {
   Typography,
   IconButton,
   Collapse,
+  Tabs,
+  Tab
 } from "@mui/material";
 import { ExpandMore, Delete, Print } from "@mui/icons-material";
 import { motion } from "framer-motion";
@@ -19,13 +21,12 @@ import axios from "axios";
 
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-Materials";
 
-const RAW_MATERIALS = ["Sesame Seeds", "Sorghum", "Suger", "Pigeon Peas", "Rice"];
+const RAW_MATERIAL_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
 
-export default function RawMaterialsStage1() {
-  const [step, setStep] = useState(1);
+export default function RawMaterialsTabs() {
+  const [activeTab, setActiveTab] = useState(0);
   const [materials, setMaterials] = useState([]);
   const [formData, setFormData] = useState({
-    rawMaterialType: "",
     supplierName: "",
     supplierPhone: "",
     supplierBags: "",
@@ -33,8 +34,9 @@ export default function RawMaterialsStage1() {
     storeKeeper: "",
     supervisor: "",
     location: "",
-    date: "",
     batchNumber: "",
+    date: "",
+    unitPrice: ""
   });
 
   const printRef = useRef();
@@ -46,6 +48,8 @@ export default function RawMaterialsStage1() {
       .catch((err) => console.error(err));
   }, []);
 
+  const handleTabChange = (event, newValue) => setActiveTab(newValue);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -53,18 +57,21 @@ export default function RawMaterialsStage1() {
 
   const bagsAfterStd = Math.floor(formData.supplierBags || 0);
   const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
-
-  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
-  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
+  const totalCost = totalWeight * (Number(formData.unitPrice || 0));
 
   const handleSave = () => {
-    const newEntry = { ...formData, bagsAfterStd, totalWeight };
+    const newEntry = {
+      ...formData,
+      rawMaterialType: RAW_MATERIAL_TABS[activeTab],
+      bagsAfterStd,
+      totalWeight,
+      totalCost
+    };
     axios
       .post(API_URL, newEntry)
       .then((res) => {
         setMaterials([...materials, res.data]);
         setFormData({
-          rawMaterialType: "",
           supplierName: "",
           supplierPhone: "",
           supplierBags: "",
@@ -72,10 +79,10 @@ export default function RawMaterialsStage1() {
           storeKeeper: "",
           supervisor: "",
           location: "",
-          date: "",
           batchNumber: "",
+          date: "",
+          unitPrice: ""
         });
-        setStep(1);
       })
       .catch((err) => console.error(err));
   };
@@ -104,204 +111,139 @@ export default function RawMaterialsStage1() {
     WinPrint.print();
   };
 
+  const tabMaterials = materials.filter(
+    (m) => m.rawMaterialType === RAW_MATERIAL_TABS[activeTab]
+  );
+  const grandTotalCost = tabMaterials.reduce((sum, m) => sum + (m.totalCost || 0), 0);
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>
         Raw Material Entry
       </Typography>
 
-      {/* Multi-Step Form */}
+      {/* Tabs */}
+      <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
+        {RAW_MATERIAL_TABS.map((tab, index) => (
+          <Tab key={index} label={tab} />
+        ))}
+      </Tabs>
+
+      {/* Entry Form */}
       <Paper elevation={6} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
-        {step === 1 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Supplier Name"
-                name="supplierName"
-                value={formData.supplierName}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                placeholder="Enter supplier name"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Supplier Phone"
-                name="supplierPhone"
-                value={formData.supplierPhone}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                placeholder="Enter supplier phone"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Raw Material</InputLabel>
-                <Select
-                  name="rawMaterialType"
-                  value={formData.rawMaterialType}
-                  onChange={handleChange}
-                  label="Raw Material"
-                >
-                  {RAW_MATERIALS.map((m, i) => (
-                    <MenuItem key={i} value={m}>{m}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Supplier Quantity (bags)"
-                name="supplierBags"
-                type="number"
-                value={formData.supplierBags}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={2}>
-              <Button variant="contained" color="primary" onClick={handleNext}>
-                Next →
-              </Button>
-            </Grid>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField
+              label="Supplier Name"
+              name="supplierName"
+              value={formData.supplierName}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
           </Grid>
-        )}
+          <Grid item xs={12} md={3}>
+            <TextField
+              label="Supplier Phone"
+              name="supplierPhone"
+              value={formData.supplierPhone}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Supplier Quantity (bags)"
+              name="supplierBags"
+              type="number"
+              value={formData.supplierBags}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Extra Kg"
+              name="extraKg"
+              type="number"
+              value={formData.extraKg}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Unit Price"
+              name="unitPrice"
+              type="number"
+              value={formData.unitPrice}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
 
-        {step === 2 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Extra Kg"
-                name="extraKg"
-                type="number"
-                value={formData.extraKg}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Bags After Standardization"
-                value={bagsAfterStd}
-                fullWidth
-                size="small"
-                InputProps={{ readOnly: true }}
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Total Weight (kg)"
-                value={totalWeight}
-                fullWidth
-                size="small"
-                InputProps={{ readOnly: true }}
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="space-between" gap={2}>
-              <Button variant="outlined" color="secondary" onClick={handlePrev}>
-                ← Previous
-              </Button>
-              <Button variant="contained" color="primary" onClick={handleNext}>
-                Next →
-              </Button>
-            </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Bags After Std"
+              value={bagsAfterStd}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
           </Grid>
-        )}
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Total Weight (kg)"
+              value={totalWeight}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Total Cost"
+              value={totalCost}
+              InputProps={{ readOnly: true }}
+              fullWidth
+              size="small"
+              variant="outlined"
+            />
+          </Grid>
 
-        {step === 3 && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Store Keeper"
-                name="storeKeeper"
-                value={formData.storeKeeper}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Supervisor"
-                name="supervisor"
-                value={formData.supervisor}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Batch Number"
-                name="batchNumber"
-                value={formData.batchNumber}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Date of Entry"
-                name="date"
-                type="date"
-                value={formData.date}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                variant="outlined"
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="space-between" gap={2}>
-              <Button variant="outlined" color="secondary" onClick={handlePrev}>
-                ← Previous
-              </Button>
-              <Button variant="contained" color="success" onClick={handleSave}>
-                Save Entry
-              </Button>
-            </Grid>
+          <Grid item xs={12} display="flex" justifyContent="flex-end" gap={2}>
+            <Button variant="contained" color="success" onClick={handleSave}>
+              Save Entry
+            </Button>
           </Grid>
-        )}
+        </Grid>
       </Paper>
 
       {/* Summary Table + Print */}
-      {materials.length > 0 && (
+      {tabMaterials.length > 0 && (
         <Box ref={printRef}>
-          <Box display="flex" justifyContent="flex-end" mb={2}>
+          <Box display="flex" justifyContent="space-between" mb={2}>
+            <Typography variant="h6" color="primary">
+              {RAW_MATERIAL_TABS[activeTab]} Summary
+            </Typography>
             <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
               Print
             </Button>
           </Box>
+
           <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
-            <Typography variant="h6" gutterBottom color="primary">
-              Raw Material Summary
-            </Typography>
-            {materials.map((m) => (
+            {tabMaterials.map((m) => (
               <motion.div
                 key={m._id}
                 layout
@@ -316,10 +258,10 @@ export default function RawMaterialsStage1() {
                       <Typography>{new Date(m.date).toLocaleDateString()}</Typography>
                     </Grid>
                     <Grid item xs={2}>
-                      <Typography>{m.rawMaterialType}</Typography>
+                      <Typography>{m.supplierName}</Typography>
                     </Grid>
                     <Grid item xs={2}>
-                      <Typography>{m.supplierName}</Typography>
+                      <Typography>{m.supplierBags}</Typography>
                     </Grid>
                     <Grid item xs={1}>
                       <Typography>{m.bagsAfterStd}</Typography>
@@ -328,7 +270,7 @@ export default function RawMaterialsStage1() {
                       <Typography>{m.totalWeight}</Typography>
                     </Grid>
                     <Grid item xs={2}>
-                      <Typography>{m.batchNumber}</Typography>
+                      <Typography>{m.totalCost}</Typography>
                     </Grid>
                     <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
                       <IconButton color="error" onClick={() => handleDelete(m._id)}>
@@ -346,6 +288,7 @@ export default function RawMaterialsStage1() {
                           <Typography>Storekeeper: {m.storeKeeper}</Typography>
                           <Typography>Supervisor: {m.supervisor}</Typography>
                           <Typography>Location: {m.location}</Typography>
+                          <Typography>Batch Number: {m.batchNumber}</Typography>
                         </Box>
                       </Collapse>
                     </Grid>
@@ -353,6 +296,12 @@ export default function RawMaterialsStage1() {
                 </Paper>
               </motion.div>
             ))}
+
+            <Box mt={2}>
+              <Typography variant="subtitle1">
+                Grand Total Cost: {grandTotalCost} 
+              </Typography>
+            </Box>
           </Paper>
         </Box>
       )}
