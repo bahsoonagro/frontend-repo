@@ -10,14 +10,16 @@ import {
   IconButton,
   Collapse,
   Tabs,
-  Tab
+  Tab,
 } from "@mui/material";
 import { ExpandMore, Delete, Print, Add, Remove } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import axios from "axios";
 import * as XLSX from "xlsx";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials"; // note small 'm'
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
+const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
+
 const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
 
 export default function RawMaterials() {
@@ -38,7 +40,21 @@ export default function RawMaterials() {
   const [step, setStep] = useState(1);
   const printRef = useRef();
 
-  // --- Fetch raw materials ---
+  // LPO
+  const [lpoItems, setLpoItems] = useState([
+    { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" },
+  ]);
+  const [lpoData, setLpoData] = useState({
+    year: new Date().getFullYear(),
+    supplier: "",
+    payment: "",
+    comments: "",
+    fuelCost: 0,
+    perDiem: 0,
+    tollFee: 0,
+    miscellaneous: 0,
+  });
+
   useEffect(() => {
     fetchMaterials();
   }, []);
@@ -49,68 +65,82 @@ export default function RawMaterials() {
       console.log("Fetched raw materials:", res.data);
       setMaterials(res.data);
     } catch (err) {
-      console.error("Error fetching raw materials:", err);
+      console.error("Error fetching raw materials:", err.response?.data || err.message);
     }
   };
 
-  // --- Set rawMaterialType automatically from tab ---
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, rawMaterialType: RAW_MATERIALS_TABS[currentTab] }));
-  }, [currentTab]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const bagsAfterStd = Math.floor(formData.supplierBags || 0);
   const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
 
-  const handleNext = () => setStep(prev => Math.min(prev + 1, 3));
-  const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
+  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
+  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const handleSaveMaterial = async () => {
     try {
       const newEntry = { ...formData, bagsAfterStd, totalWeight };
+      console.log("Saving raw material:", newEntry);
       const res = await axios.post(API_URL, newEntry);
-      console.log("Saved material:", res.data);
+      console.log("Saved raw material response:", res.data);
       setMaterials([...materials, res.data]);
-      setFormData({
-        ...formData,
-        supplierName: "",
-        supplierPhone: "",
-        supplierBags: "",
-        extraKg: "",
-        storeKeeper: "",
-        supervisor: "",
-        location: "",
-        date: "",
-        batchNumber: "",
-      });
+      setFormData({ ...formData, supplierName: "", supplierPhone: "", supplierBags: "", extraKg: "", storeKeeper: "", supervisor: "", location: "", date: "", batchNumber: "" });
       setStep(1);
     } catch (err) {
-      console.error("Error saving material:", err);
+      console.error("Error saving raw material:", err.response?.data || err.message);
     }
   };
 
   const handleDeleteMaterial = async (id) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      setMaterials(materials.filter(m => m._id !== id));
-      console.log("Deleted material ID:", id);
+      setMaterials(materials.filter((m) => m._id !== id));
+      console.log("Deleted material with id:", id);
     } catch (err) {
-      console.error("Error deleting material:", err);
+      console.error("Error deleting material:", err.response?.data || err.message);
     }
   };
 
   const toggleExpandMaterial = (id) => {
-    setMaterials(materials.map(m => (m._id === id ? { ...m, expanded: !m.expanded } : m)));
+    setMaterials(materials.map((m) => (m._id === id ? { ...m, expanded: !m.expanded } : m)));
+  };
+
+  // LPO handlers
+  const handleLpoItemChange = (index, e) => {
+    const { name, value } = e.target;
+    const updatedItems = [...lpoItems];
+    updatedItems[index][name] = value;
+    setLpoItems(updatedItems);
+  };
+
+  const addLpoItem = () => setLpoItems([...lpoItems, { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const removeLpoItem = (index) => setLpoItems(lpoItems.filter((_, i) => i !== index));
+  const handleLpoChange = (e) => {
+    const { name, value } = e.target;
+    setLpoData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveLpo = async () => {
+    try {
+      const totalCost = lpoItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
+      const payload = { ...lpoData, items: lpoItems, totalCost };
+      console.log("Saving LPO:", payload);
+      await axios.post(LPO_URL, payload);
+      setLpoItems([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+      alert("LPO saved successfully!");
+    } catch (err) {
+      console.error("Error saving LPO:", err.response?.data || err.message);
+    }
   };
 
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
-    WinPrint.document.write("<html><head><title>Raw Material Report</title></head><body>");
+    WinPrint.document.write("<html><head><title>Raw Material & LPO Report</title></head><body>");
     WinPrint.document.write(printContent);
     WinPrint.document.write("</body></html>");
     WinPrint.document.close();
@@ -119,7 +149,7 @@ export default function RawMaterials() {
   };
 
   const exportToExcel = () => {
-    const wsData = materials.map(m => ({
+    const wsData = materials.map((m) => ({
       Date: new Date(m.date).toLocaleDateString(),
       Material: m.rawMaterialType,
       Supplier: m.supplierName,
@@ -136,16 +166,15 @@ export default function RawMaterials() {
     XLSX.writeFile(wb, "RawMaterials.xlsx");
   };
 
-  // --- Filter materials per tab ---
-  const filteredMaterials = materials.filter(m => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]);
-
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials Entry</Typography>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials & LPO Entry</Typography>
 
       {/* Tabs */}
       <Tabs value={currentTab} onChange={(e, newVal) => setCurrentTab(newVal)} sx={{ mb: 3 }}>
-        {RAW_MATERIALS_TABS.map((tab, i) => <Tab label={tab} key={i} />)}
+        {RAW_MATERIALS_TABS.map((tab, i) => (
+          <Tab label={tab} key={i} />
+        ))}
       </Tabs>
 
       {/* Multi-Step Form */}
@@ -195,43 +224,79 @@ export default function RawMaterials() {
       </Paper>
 
       {/* Summary & Print/Excel */}
-      {filteredMaterials.length > 0 && (
+      {materials.length > 0 && (
         <Box ref={printRef}>
           <Box display="flex" justifyContent="flex-end" gap={2} mb={2}>
             <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print</Button>
             <Button variant="outlined" onClick={exportToExcel}>Export Excel</Button>
           </Box>
-          {filteredMaterials.map((m) => (
-            <motion.div key={m._id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: "1rem" }}>
-              <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
-                <Grid container spacing={1} alignItems="center">
-                  <Grid item xs={2}><Typography>{new Date(m.date).toLocaleDateString()}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.rawMaterialType}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.supplierName}</Typography></Grid>
-                  <Grid item xs={1}><Typography>{m.bagsAfterStd}</Typography></Grid>
-                  <Grid item xs={1}><Typography>{m.totalWeight}</Typography></Grid>
-                  <Grid item xs={2}><Typography>{m.batchNumber}</Typography></Grid>
-                  <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
-                    <IconButton color="error" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton>
-                    <IconButton onClick={() => toggleExpandMaterial(m._id)}><ExpandMore /></IconButton>
+
+          {materials
+            .filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab])
+            .map((m) => (
+              <motion.div key={m._id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: "1rem" }}>
+                <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }}>
+                  <Grid container spacing={1} alignItems="center">
+                    <Grid item xs={2}><Typography>{new Date(m.date).toLocaleDateString()}</Typography></Grid>
+                    <Grid item xs={2}><Typography>{m.rawMaterialType}</Typography></Grid>
+                    <Grid item xs={2}><Typography>{m.supplierName}</Typography></Grid>
+                    <Grid item xs={1}><Typography>{m.bagsAfterStd}</Typography></Grid>
+                    <Grid item xs={1}><Typography>{m.totalWeight}</Typography></Grid>
+                    <Grid item xs={2}><Typography>{m.batchNumber}</Typography></Grid>
+                    <Grid item xs={2} display="flex" justifyContent="flex-end" gap={1}>
+                      <IconButton color="error" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton>
+                      <IconButton onClick={() => toggleExpandMaterial(m._id)}><ExpandMore /></IconButton>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Collapse in={m.expanded}>
+                        <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
+                          <Typography>Supplier Phone: {m.supplierPhone}</Typography>
+                          <Typography>Extra Kg: {m.extraKg}</Typography>
+                          <Typography>Storekeeper: {m.storeKeeper}</Typography>
+                          <Typography>Supervisor: {m.supervisor}</Typography>
+                          <Typography>Location: {m.location}</Typography>
+                        </Box>
+                      </Collapse>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12}>
-                    <Collapse in={m.expanded}>
-                      <Box sx={{ mt: 1, p: 1, backgroundColor: "#f5f5f5", borderRadius: 2 }}>
-                        <Typography>Supplier Phone: {m.supplierPhone}</Typography>
-                        <Typography>Extra Kg: {m.extraKg}</Typography>
-                        <Typography>Storekeeper: {m.storeKeeper}</Typography>
-                        <Typography>Supervisor: {m.supervisor}</Typography>
-                        <Typography>Location: {m.location}</Typography>
-                      </Box>
-                    </Collapse>
-                  </Grid>
-                </Grid>
-              </Paper>
-            </motion.div>
-          ))}
+                </Paper>
+              </motion.div>
+            ))}
         </Box>
       )}
+
+      {/* LPO Section */}
+      <Paper elevation={6} sx={{ p: 3, mt: 4, borderRadius: 3 }}>
+        <Typography variant="h5" gutterBottom color="secondary">Create LPO</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}><TextField label="Year" name="year" type="number" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+          <Grid item xs={12} md={3}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+          <Grid item xs={12} md={3}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+          <Grid item xs={12} md={3}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+
+          {lpoItems.map((item, index) => (
+            <React.Fragment key={index}>
+              <Grid item xs={12} md={3}>
+                <TextField label="Raw Material" value={item.rawMaterialType} fullWidth size="small" InputProps={{ readOnly: true }} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(index, e)} fullWidth size="small" />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(index, e)} fullWidth size="small" />
+              </Grid>
+              <Grid item xs={12} md={3} display="flex" alignItems="center" gap={1}>
+                <IconButton color="primary" onClick={addLpoItem}><Add /></IconButton>
+                <IconButton color="error" onClick={() => removeLpoItem(index)}><Remove /></IconButton>
+              </Grid>
+            </React.Fragment>
+          ))}
+
+          <Grid item xs={12} display="flex" justifyContent="flex-end">
+            <Button variant="contained" color="success" onClick={handleSaveLpo}>Save LPO</Button>
+          </Grid>
+        </Grid>
+      </Paper>
     </Box>
   );
 }
