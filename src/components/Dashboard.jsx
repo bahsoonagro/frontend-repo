@@ -36,7 +36,7 @@ const Dashboard = ({ apiUrl }) => {
     const fetchData = async () => {
       try {
         const [rawRes, finishedRes, stockRes, dispatchRes] = await Promise.all([
-          axios.get(`${apiUrl}/api/raw-materials`),
+          axios.get(`${apiUrl}/api/raw-Materials`),
           axios.get(`${apiUrl}/api/finished-products`),
           axios.get(`${apiUrl}/api/stock-movements`),
           axios.get(`${apiUrl}/api/dispatch-delivery`),
@@ -61,42 +61,45 @@ const Dashboard = ({ apiUrl }) => {
     fetchData();
   }, [apiUrl]);
 
-  const filteredDispatches = dispatches.filter(d => {
+  // Filter dispatches
+  const filteredDispatches = dispatches.filter((d) => {
     const date = new Date(d.date);
     const afterStart = startDate ? date >= new Date(startDate) : true;
     const beforeEnd = endDate ? date <= new Date(endDate) : true;
     const matchesProduct =
-      selectedProduct === "all" ? true : d.item === (d.item || selectedProduct);
+      selectedProduct === "all" ? true : d.item === selectedProduct;
     return afterStart && beforeEnd && matchesProduct;
   });
 
+  // Monthly dispatch aggregation
   const monthlyDispatch = filteredDispatches.reduce((acc, item) => {
     if (!item.date || !item.quantity) return acc;
     const month = new Date(item.date).toLocaleString("default", { month: "short" });
-    const existing = acc.find(d => d.month === month);
+    const existing = acc.find((d) => d.month === month);
     if (existing) existing.quantity += item.quantity;
     else acc.push({ month, quantity: item.quantity });
     return acc;
   }, []);
 
-  const finishedProductsData = finishedProducts.map(p => ({
-    name: p.name || p.productName || "Unnamed",
+  // Map data for charts
+  const finishedProductsData = finishedProducts.map((p) => ({
+    name: p.productName || p.name || "Unnamed",
     quantity: p.quantity || p.qty || 0,
   }));
 
-  const stockMovementData = stockMovements.map(m => ({
+  const stockMovementData = stockMovements.map((m) => ({
     item: m.item || m.productName || "Unnamed",
     in: m.quantityIn || m.qtyIn || 0,
     out: m.quantityOut || m.qtyOut || 0,
   }));
 
-  const rawMaterialData = rawMaterials.map(r => ({
-    name: r.name || r.rawMaterialName || "Unnamed",
-    quantity: r.quantity || r.qty || 0,
+  const rawMaterialData = rawMaterials.map((r) => ({
+    name: r.rawMaterialType || "Unnamed",
+    quantity: r.bagsAfterStd || 0,
   }));
 
   const productOptions = Array.from(
-    new Set(dispatches.map(d => d.item || d.productName))
+    new Set(dispatches.map((d) => d.item || d.productName))
   );
 
   if (loading) return <div className="p-4 space-y-6"><Shimmer /><Shimmer /><Shimmer /><Shimmer /></div>;
@@ -113,7 +116,7 @@ const Dashboard = ({ apiUrl }) => {
           <input
             type="date"
             value={startDate}
-            onChange={e => setStartDate(e.target.value)}
+            onChange={(e) => setStartDate(e.target.value)}
             className="border p-2 rounded"
           />
         </div>
@@ -122,7 +125,7 @@ const Dashboard = ({ apiUrl }) => {
           <input
             type="date"
             value={endDate}
-            onChange={e => setEndDate(e.target.value)}
+            onChange={(e) => setEndDate(e.target.value)}
             className="border p-2 rounded"
           />
         </div>
@@ -130,11 +133,11 @@ const Dashboard = ({ apiUrl }) => {
           <label className="block font-semibold">Product</label>
           <select
             value={selectedProduct}
-            onChange={e => setSelectedProduct(e.target.value)}
+            onChange={(e) => setSelectedProduct(e.target.value)}
             className="border p-2 rounded"
           >
             <option value="all">All</option>
-            {productOptions.map(item => (
+            {productOptions.map((item) => (
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
