@@ -37,7 +37,7 @@ const Dashboard = ({ apiUrl }) => {
     const fetchData = async () => {
       try {
         const [rawRes, finishedRes, stockRes, dispatchRes] = await Promise.all([
-          axios.get(`${apiUrl}/api/raw-Materials`),
+          axios.get(`${apiUrl}/api/raw-materials`),
           axios.get(`${apiUrl}/api/finished-products`),
           axios.get(`${apiUrl}/api/stock-movements`),
           axios.get(`${apiUrl}/api/dispatch-delivery`),
