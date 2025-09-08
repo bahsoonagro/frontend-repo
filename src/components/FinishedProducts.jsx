@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   Box,
   Button,
@@ -6,6 +6,7 @@ import {
   TextField,
   Select,
   MenuItem,
+  InputLabel,
   FormControl,
   Paper,
   Typography,
@@ -13,7 +14,6 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Delete, Print, FileDownload } from "@mui/icons-material";
-import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -30,9 +30,18 @@ const FINISHED_PRODUCTS = [
   "Pikinmix 5kg",
 ];
 
-export default function FinishedProducts() {
-  const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
+const INITIAL_STOCK = [
+  { productName: "Bennimix 50g", openingStock: 100, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Bennimix 400g", openingStock: 200, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 2kg", openingStock: 1089, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 1kg", openingStock: 1965, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Supermix 50g", openingStock: 14, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 4kg", openingStock: 20, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 5kg", openingStock: 2, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+  { productName: "Pikinmix 500g", openingStock: 25, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
+];
 
+export default function FinishedProducts() {
   const [formData, setFormData] = useState({
     productName: "",
     openingStock: "",
@@ -42,69 +51,40 @@ export default function FinishedProducts() {
     remarks: "",
   });
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(INITIAL_STOCK);
   const [editingIndex, setEditingIndex] = useState(null);
   const printRef = useRef();
-
-  // --- Fetch products from backend ---
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get(API_URL);
-        console.log("Fetched finished products:", res.data);
-        setProducts(res.data);
-      } catch (err) {
-        console.error("Error fetching finished products:", err);
-      }
-    };
-    fetchProducts();
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formData.productName || formData.openingStock === "") return;
 
-    try {
-      if (editingIndex !== null) {
-        // Update product
-        const updatedProduct = { ...formData };
-        await axios.put(`${API_URL}/${products[editingIndex]._id}`, updatedProduct);
-
-        const updated = [...products];
-        updated[editingIndex] = updatedProduct;
-        setProducts(updated);
-        setEditingIndex(null);
-      } else {
-        // Add new product
-        const res = await axios.post(API_URL, formData);
-        setProducts([...products, res.data]);
-      }
-
-      setFormData({
-        productName: "",
-        openingStock: "",
-        stockIn: 0,
-        stockOut: 0,
-        storeKeeper: "",
-        remarks: "",
-      });
-    } catch (err) {
-      console.error("Error saving finished product:", err);
+    if (editingIndex !== null) {
+      const updated = [...products];
+      updated[editingIndex] = { ...formData };
+      setProducts(updated);
+      setEditingIndex(null);
+    } else {
+      setProducts([...products, formData]);
     }
+
+    setFormData({
+      productName: "",
+      openingStock: "",
+      stockIn: 0,
+      stockOut: 0,
+      storeKeeper: "",
+      remarks: "",
+    });
   };
 
-  const handleDelete = async (index) => {
-    try {
-      await axios.delete(`${API_URL}/${products[index]._id}`);
-      setProducts(products.filter((_, i) => i !== index));
-      if (editingIndex === index) setEditingIndex(null);
-    } catch (err) {
-      console.error("Error deleting finished product:", err);
-    }
+  const handleDelete = (index) => {
+    setProducts(products.filter((_, i) => i !== index));
+    if (editingIndex === index) setEditingIndex(null);
   };
 
   const handleEdit = (index) => {
@@ -192,10 +172,12 @@ export default function FinishedProducts() {
         <Grid container spacing={1}>
           <Grid item xs={6} sm={3}>
             <FormControl fullWidth size="small">
+              <InputLabel>Product</InputLabel>
               <Select
                 name="productName"
                 value={formData.productName}
                 onChange={handleChange}
+                label="Product"
               >
                 {FINISHED_PRODUCTS.map((p, i) => (
                   <MenuItem key={i} value={p}>{p}</MenuItem>
@@ -266,9 +248,15 @@ export default function FinishedProducts() {
 
       {/* Table + Print + Export */}
       <Box mb={2} display="flex" gap={2}>
-        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print Table</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>Export Excel</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>Export PDF</Button>
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
+          Print Table
+        </Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>
+          Export Excel
+        </Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>
+          Export PDF
+        </Button>
       </Box>
 
       <Box ref={printRef}>
@@ -290,7 +278,12 @@ export default function FinishedProducts() {
             </thead>
             <tbody>
               {products.map((prod, i) => (
-                <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                <tr
+                  key={i}
+                  style={{
+                    backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff",
+                  }}
+                >
                   <td style={tdStyle}>{i + 1}</td>
                   <td style={tdStyle}>{prod.productName}</td>
                   <td style={tdStyle}>{prod.openingStock}</td>
@@ -302,10 +295,14 @@ export default function FinishedProducts() {
                   <td style={tdStyle}>{prod.remarks}</td>
                   <td style={tdStyle}>
                     <Tooltip title="Edit">
-                      <IconButton color="primary" size="small" onClick={() => handleEdit(i)}>✏️</IconButton>
+                      <IconButton color="primary" size="small" onClick={() => handleEdit(i)}>
+                        ✏️
+                      </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton color="error" size="small" onClick={() => handleDelete(i)}><Delete /></IconButton>
+                      <IconButton color="error" size="small" onClick={() => handleDelete(i)}>
+                        <Delete />
+                      </IconButton>
                     </Tooltip>
                   </td>
                 </tr>
