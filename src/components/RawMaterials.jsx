@@ -16,8 +16,6 @@ import axios from "axios";
 import * as XLSX from "xlsx";
 
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
-const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
-
 const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
 
 export default function RawMaterials() {
@@ -168,22 +166,27 @@ export default function RawMaterials() {
         ))}
       </Tabs>
 
-      {/* Forms (50% width) */}
-      <Grid container spacing={2} sx={{ mb: 3, width: "50%" }}>
+      {/* Forms stretched full width */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {/* Raw Material Form */}
         <Grid item xs={12}>
           <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
             <Typography variant="h6" gutterBottom>Raw Material Entry</Typography>
             <Grid container spacing={1}>
-              <Grid item xs={6}><TextField label="Supplier Name" name="supplierName" value={formData.supplierName} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Supplier Phone" name="supplierPhone" value={formData.supplierPhone} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Supplier Bags" name="supplierBags" type="number" value={formData.supplierBags} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Extra Kg" name="extraKg" type="number" value={formData.extraKg} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Store Keeper" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Supervisor" name="supervisor" value={formData.supervisor} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Location" name="location" value={formData.location} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Batch Number" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Date" name="date" type="date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
+              {["supplierName","supplierPhone","supplierBags","extraKg","storeKeeper","supervisor","location","batchNumber","date"].map((field, index) => (
+                <Grid item xs={12} sm={6} md={4} key={index}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={field === "supplierBags" ? "Supplier Bags" : field === "extraKg" ? "Extra Kg" : field === "batchNumber" ? "Batch Number" : field === "date" ? "Date" : field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')}
+                    name={field}
+                    value={formData[field]}
+                    type={field.includes("Bags") || field.includes("Kg") || field.includes("year") ? "number" : field === "date" ? "date" : "text"}
+                    InputLabelProps={field === "date" ? { shrink: true } : {}}
+                    onChange={handleChange}
+                  />
+                </Grid>
+              ))}
               <Grid item xs={12} display="flex" justifyContent="flex-end">
                 <Button variant="contained" color="success" onClick={handleSaveMaterial}>Save</Button>
               </Grid>
@@ -196,16 +199,17 @@ export default function RawMaterials() {
           <Paper elevation={3} sx={{ p: 2, borderRadius: 2 }}>
             <Typography variant="h6" gutterBottom>Create LPO</Typography>
             <Grid container spacing={1}>
-              <Grid item xs={6}><TextField label="Year" name="year" type="number" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-              <Grid item xs={6}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+              <Grid item xs={12} sm={6} md={4}><TextField fullWidth size="small" label="Year" name="year" type="number" value={lpoData.year} onChange={handleLpoChange} /></Grid>
+              <Grid item xs={12} sm={6} md={4}><TextField fullWidth size="small" label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} /></Grid>
+              <Grid item xs={12} sm={6} md={4}><TextField fullWidth size="small" label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} /></Grid>
+              <Grid item xs={12} sm={6} md={4}><TextField fullWidth size="small" label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} /></Grid>
+
               {lpoItems.map((item, index) => (
                 <React.Fragment key={index}>
-                  <Grid item xs={4}><TextField label="Material" value={item.rawMaterialType} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
-                  <Grid item xs={4}><TextField label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(index, e)} fullWidth size="small" /></Grid>
-                  <Grid item xs={4} display="flex" alignItems="center" gap={1}>
-                    <TextField label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(index, e)} fullWidth size="small" />
+                  <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Material" value={item.rawMaterialType} InputProps={{ readOnly: true }} /></Grid>
+                  <Grid item xs={12} sm={4}><TextField fullWidth size="small" label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(index, e)} /></Grid>
+                  <Grid item xs={12} sm={4} display="flex" alignItems="center" gap={1}>
+                    <TextField fullWidth size="small" label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(index, e)} />
                     <Button variant="outlined" onClick={() => removeLpoItem(index)} size="small">Remove</Button>
                   </Grid>
                 </React.Fragment>
@@ -238,7 +242,7 @@ export default function RawMaterials() {
           </thead>
           <tbody>
             {materials.filter(m => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]).map((m) => (
-              <tr key={m._id} style={{ backgroundColor: "#f5f5f5", textAlign: "center" }}>
+              <tr key={m._id} style={trStyle}>
                 <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
                 <td style={tdStyle}>{m.rawMaterialType}</td>
                 <td style={tdStyle}>{m.supplierName}</td>
@@ -272,4 +276,6 @@ export default function RawMaterials() {
 }
 
 const thStyle = { padding: "8px", border: "1px solid #ddd" };
-const tdStyle = { padding: "6px", border: "1px solid #ddd" };
+const tdStyle = { padding: "6px", border: "1px solid #ddd", textAlign: "center" };
+const trStyle = { backgroundColor: "#f5f5f5", transition: "0.3s", cursor: "pointer" };
+
