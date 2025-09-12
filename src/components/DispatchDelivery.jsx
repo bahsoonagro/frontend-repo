@@ -13,6 +13,7 @@ import {
   ListItemText,
   OutlinedInput,
 } from "@mui/material";
+import { motion } from "framer-motion";
 
 const tollGroups = [
   { group: "Group 1: Kekeh (Tricycles)", price: 3 },
@@ -35,6 +36,12 @@ const itemsList = [
   "Pikinmix 5kg",
 ];
 
+const btnStyle = {
+  background: "linear-gradient(90deg, #4CAF50 0%, #388E3C 100%)",
+  color: "#fff",
+  fontWeight: "bold",
+};
+
 export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [formData, setFormData] = useState({
     item: "",
@@ -56,7 +63,6 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Fetch dispatch data from backend
   useEffect(() => {
     if (!apiUrl) return;
     fetchDispatches();
@@ -72,7 +78,6 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
     }
   };
 
-  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -90,7 +95,6 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
     setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
   }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
-  // Submit new dispatch
   const handleSubmit = async (e) => {
     e.preventDefault();
     const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
@@ -136,7 +140,6 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
     }
   };
 
-  // Optional: Delete dispatch
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this dispatch?")) return;
     try {
@@ -163,10 +166,11 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   };
 
   return (
-    <Box className="p-4 max-w-6xl mx-auto">
+    <Box className="p-4 max-w-7xl mx-auto">
       <h2 className="text-xl font-bold mb-4 text-blue-600">🚚 Dispatch & Delivery</h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Dispatch Form */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <FormControl fullWidth>
           <InputLabel id="item-label">Item</InputLabel>
           <Select
@@ -185,6 +189,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
         <TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth />
         <TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
         <TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth />
+
         <TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth />
         <TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth />
 
@@ -228,7 +233,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
         <TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth />
         <TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
 
-        <Button type="submit" variant="contained" color="primary" className="col-span-1 md:col-span-3">
+        <Button type="submit" style={btnStyle} className="col-span-1 md:col-span-4">
           {loading ? "Saving..." : "➕ Record Dispatch"}
         </Button>
       </form>
@@ -236,6 +241,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
       {error && <Box className="mb-4 text-red-600 font-semibold">{error}</Box>}
       {successMsg && <Box className="mb-4 text-green-600 font-semibold">{successMsg}</Box>}
 
+      {/* Dispatch Table */}
       <Box className="overflow-x-auto border rounded" id="dispatch-table">
         {dispatches.length === 0 ? (
           <div className="text-center text-gray-500 p-4">No dispatches recorded.</div>
@@ -244,13 +250,17 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
             <thead>
               <tr>
                 {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Actions"].map((h) => (
-                  <th key={h} className="p-2 border bg-gray-100">{h}</th>
+                  <th key={h} className="p-2 border bg-green-200">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {dispatches.map((d, i) => (
-                <tr key={d._id || i} className={i % 2 === 0 ? "bg-gray-50" : ""}>
+                <motion.tr
+                  key={d._id || i}
+                  whileHover={{ scale: 1.01 }}
+                  className={i % 2 === 0 ? "bg-gray-50 hover:bg-blue-50 transition-colors" : "hover:bg-blue-50 transition-colors"}
+                >
                   <td className="p-2 border">{d.item || "-"}</td>
                   <td className="p-2 border">{d.quantity || 0}</td>
                   <td className="p-2 border">{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
@@ -267,19 +277,34 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
                   <td className="p-2 border">
                     <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
+
+              {/* Totals Row */}
+              <tr className="bg-gray-100 font-bold">
+                <td className="p-2 border" colSpan={7}>Totals</td>
+                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.tollFee || 0), 0)}</td>
+                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.fuelCost || 0), 0)}</td>
+                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.perDiem || 0), 0)}</td>
+                <td className="p-2 border"></td>
+                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.totalCost || 0), 0)}</td>
+                <td className="p-2 border"></td>
+                <td className="p-2 border"></td>
+              </tr>
             </tbody>
           </table>
         )}
       </Box>
 
-      <Button variant="outlined" onClick={handlePrint} className="mt-4 bg-gray-600 text-white">🖨️ Print Table</Button>
+      {/* Print & Export */}
+      <Box className="flex flex-wrap gap-4 mt-4">
+        <Button onClick={handlePrint} style={btnStyle}>🖨️ Print Table</Button>
+        {/* You can add export to CSV/Excel button here with same style */}
+      </Box>
     </Box>
   );
 }
 
-// Default props
 DispatchDeliveryFactory.defaultProps = {
   personnelList: [],
   apiUrl: "",
