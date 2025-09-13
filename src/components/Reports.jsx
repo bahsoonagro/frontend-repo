@@ -26,11 +26,11 @@ const Reporting = ({ apiUrl }) => {
   const tableRef = useRef();
 
   const tabConfig = [
-    { label: "Raw Materials", endpoint: "api/raw-materials" },
-    { label: "Finished Products", endpoint: "api/finished-products" },
-    { label: "Stock Movements", endpoint: "api/stock-movements" },
-    { label: "LPOs & Requisitions", endpoint: "api/raw-materials/lpo" },
-    { label: "Customer Deliveries", endpoint: "api/dispatch-delivery" },
+    { label: "Raw Materials", endpoint: "/api/raw-materials" },
+    { label: "Finished Products", endpoint: "/api/finished-products" },
+    { label: "Stock Movements", endpoint: "/api/stock-movements" },
+    { label: "LPOs & Requisitions", endpoint: "/api/raw-materials/lpo" },
+    { label: "Customer Deliveries", endpoint: "/api/dispatch-delivery" },
   ];
 
   useEffect(() => {
