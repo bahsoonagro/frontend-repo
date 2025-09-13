@@ -1,5 +1,5 @@
-// src/components/DispatchDeliveryFactory.jsx
-import React, { useState, useEffect } from "react";
+// src/components/DispatchDeliveryFactoryStyled.jsx
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import {
   Box,
@@ -12,8 +12,12 @@ import {
   Checkbox,
   ListItemText,
   OutlinedInput,
+  Paper,
+  Typography,
+  IconButton,
+  Grid,
 } from "@mui/material";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const tollGroups = [
   { group: "Group 1: Kekeh (Tricycles)", price: 3 },
@@ -36,11 +40,8 @@ const itemsList = [
   "Pikinmix 5kg",
 ];
 
-const btnStyle = {
-  background: "linear-gradient(90deg, #4CAF50 0%, #388E3C 100%)",
-  color: "#fff",
-  fontWeight: "bold",
-};
+const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
 export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [formData, setFormData] = useState({
@@ -62,6 +63,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const printRef = useRef();
 
   useEffect(() => {
     if (!apiUrl) return;
@@ -152,154 +154,131 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   };
 
   const handlePrint = () => {
-    const table = document.getElementById("dispatch-table")?.outerHTML;
-    if (!table) return;
-    const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Dispatch Deliveries</title>
-      <style>
-        table { width: 100%; border-collapse: collapse; font-family: Arial; }
-        th, td { border: 1px solid black; padding: 8px; text-align: left; }
-        th { background-color: #e2e8f0; }
-      </style></head><body>${table}</body></html>`);
-    win.document.close();
-    win.print();
+    const printContent = printRef.current.innerHTML;
+    const WinPrint = window.open("", "", "width=900,height=650");
+    WinPrint.document.write("<html><head><title>Dispatch Deliveries</title>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}th{background-color:#1976d2;color:#fff;} tr:hover{background-color:#e3f2fd;}</style>");
+    WinPrint.document.write("</head><body>");
+    WinPrint.document.write(printContent);
+    WinPrint.document.write("</body></html>");
+    WinPrint.document.close();
+    WinPrint.focus();
+    WinPrint.print();
   };
 
   return (
-    <Box className="p-4 max-w-7xl mx-auto">
-      <h2 className="text-xl font-bold mb-4 text-blue-600">🚚 Dispatch & Delivery</h2>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>🚚 Dispatch & Delivery</Typography>
 
-      {/* Dispatch Form */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <FormControl fullWidth>
-          <InputLabel id="item-label">Item</InputLabel>
-          <Select
-            labelId="item-label"
-            name="item"
-            value={formData.item}
-            onChange={handleChange}
-            input={<OutlinedInput label="Item" />}
-          >
-            {itemsList.map((i) => (
-              <MenuItem key={i} value={i}>{i}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="item-label">Item</InputLabel>
+                <Select labelId="item-label" name="item" value={formData.item} onChange={handleChange} input={<OutlinedInput label="Item" />}>
+                  {itemsList.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
 
-        <TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth />
-        <TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
-        <TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth />
+            <Grid item xs={12} md={3}><TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="toll-label">Toll Group</InputLabel>
+                <Select labelId="toll-label" name="tollGroup" value={formData.tollGroup} onChange={handleChange} input={<OutlinedInput label="Toll Group" />}>
+                  {tollGroups.map((g) => <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="personnel-label">Personnel</InputLabel>
+                <Select
+                  labelId="personnel-label"
+                  multiple
+                  value={formData.personnel}
+                  onChange={handlePersonnelChange}
+                  input={<OutlinedInput label="Personnel" />}
+                  renderValue={(selected) => selected.join(", ")}
+                >
+                  {(personnelList || []).map((p) => (
+                    <MenuItem key={p} value={p}>
+                      <Checkbox checked={formData.personnel.includes(p)} />
+                      <ListItemText primary={p} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" /></Grid>
 
-        <TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth />
-        <TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth />
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
+              <Button variant="contained" color="success" type="submit" size="small">{loading ? "Saving..." : "➕ Record Dispatch"}</Button>
+            </Grid>
+          </Grid>
+        </form>
 
-        <FormControl fullWidth>
-          <InputLabel id="toll-label">Toll Group</InputLabel>
-          <Select
-            labelId="toll-label"
-            name="tollGroup"
-            value={formData.tollGroup}
-            onChange={handleChange}
-            input={<OutlinedInput label="Toll Group" />}
-          >
-            {tollGroups.map((g) => (
-              <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {error && <Box sx={{ mt: 2, color: "red", fontWeight: "bold" }}>{error}</Box>}
+        {successMsg && <Box sx={{ mt: 2, color: "green", fontWeight: "bold" }}>{successMsg}</Box>}
+      </Paper>
 
-        <TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth />
-        <TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth />
+      {/* Table Section */}
+      <Box ref={printRef} sx={{ mt: 3 }}>
+        <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
+          <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
+        </Box>
 
-        <FormControl fullWidth>
-          <InputLabel id="personnel-label">Personnel</InputLabel>
-          <Select
-            labelId="personnel-label"
-            multiple
-            value={formData.personnel}
-            onChange={handlePersonnelChange}
-            input={<OutlinedInput label="Personnel" />}
-            renderValue={(selected) => selected.join(", ")}
-          >
-            {(personnelList || []).map((p) => (
-              <MenuItem key={p} value={p}>
-                <Checkbox checked={formData.personnel.includes(p)} />
-                <ListItemText primary={p} />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth />
-        <TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
-
-        <Button type="submit" style={btnStyle} className="col-span-1 md:col-span-4">
-          {loading ? "Saving..." : "➕ Record Dispatch"}
-        </Button>
-      </form>
-
-      {error && <Box className="mb-4 text-red-600 font-semibold">{error}</Box>}
-      {successMsg && <Box className="mb-4 text-green-600 font-semibold">{successMsg}</Box>}
-
-      {/* Dispatch Table */}
-      <Box className="overflow-x-auto border rounded" id="dispatch-table">
-        {dispatches.length === 0 ? (
-          <div className="text-center text-gray-500 p-4">No dispatches recorded.</div>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
+        <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Actions"].map((h) => (
-                  <th key={h} className="p-2 border bg-green-200">{h}</th>
-                ))}
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {dispatches.map((d, i) => (
-                <motion.tr
-                  key={d._id || i}
-                  whileHover={{ scale: 1.01 }}
-                  className={i % 2 === 0 ? "bg-gray-50 hover:bg-blue-50 transition-colors" : "hover:bg-blue-50 transition-colors"}
-                >
-                  <td className="p-2 border">{d.item || "-"}</td>
-                  <td className="p-2 border">{d.quantity || 0}</td>
-                  <td className="p-2 border">{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
-                  <td className="p-2 border">{d.customer || "-"}</td>
-                  <td className="p-2 border">{d.driver || "-"}</td>
-                  <td className="p-2 border">{d.vehicle || "-"}</td>
-                  <td className="p-2 border">{d.tollGroup || "-"}</td>
-                  <td className="p-2 border">{d.tollFee ?? 0}</td>
-                  <td className="p-2 border">{d.fuelCost ?? 0}</td>
-                  <td className="p-2 border">{d.perDiem ?? 0}</td>
-                  <td className="p-2 border">{(d.personnel || []).join(", ")}</td>
-                  <td className="p-2 border">{d.totalCost ?? 0}</td>
-                  <td className="p-2 border">{d.remarks || "-"}</td>
-                  <td className="p-2 border">
-                    <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
-                  </td>
-                </motion.tr>
-              ))}
-
-              {/* Totals Row */}
-              <tr className="bg-gray-100 font-bold">
-                <td className="p-2 border" colSpan={7}>Totals</td>
-                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.tollFee || 0), 0)}</td>
-                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.fuelCost || 0), 0)}</td>
-                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.perDiem || 0), 0)}</td>
-                <td className="p-2 border"></td>
-                <td className="p-2 border">{dispatches.reduce((acc, d) => acc + (d.totalCost || 0), 0)}</td>
-                <td className="p-2 border"></td>
-                <td className="p-2 border"></td>
-              </tr>
+              <AnimatePresence>
+                {dispatches.map((d, i) => (
+                  <motion.tr key={d._id || i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
+                    <td style={tdStyle}>{d.item || "-"}</td>
+                    <td style={tdStyle}>{d.quantity || 0}</td>
+                    <td style={tdStyle}>{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
+                    <td style={tdStyle}>{d.customer || "-"}</td>
+                    <td style={tdStyle}>{d.driver || "-"}</td>
+                    <td style={tdStyle}>{d.vehicle || "-"}</td>
+                    <td style={tdStyle}>{d.tollGroup || "-"}</td>
+                    <td style={tdStyle}>{tollGroups.find((g) => g.group === d.tollGroup)?.price || 0}</td>
+                    <td style={tdStyle}>{d.fuelCost ?? 0}</td>
+                    <td style={tdStyle}>{d.perDiem ?? 0}</td>
+                    <td style={tdStyle}>{(d.personnel || []).join(", ")}</td>
+                    <td style={tdStyle}>{d.totalCost ?? 0}</td>
+                    <td style={tdStyle}>{d.remarks || "-"}</td>
+                    <td style={tdStyle}><Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button></td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
             </tbody>
+            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
+              <tr>
+                <td style={tdStyle} colSpan={7}>Totals</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (tollGroups.find((g) => g.group === d.tollGroup)?.price || 0), 0)}</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.fuelCost || 0), 0)}</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.perDiem || 0), 0)}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.totalCost || 0), 0)}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
           </table>
-        )}
-      </Box>
-
-      {/* Print & Export */}
-      <Box className="flex flex-wrap gap-4 mt-4">
-        <Button onClick={handlePrint} style={btnStyle}>🖨️ Print Table</Button>
-        {/* You can add export to CSV/Excel button here with same style */}
+        </Paper>
       </Box>
     </Box>
   );
