@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Shimmer loading placeholder
+// Optional debug toggle
 const Shimmer = () => (
   <div className="animate-pulse space-y-2">
     <div className="h-6 bg-gray-300 rounded w-1/3 mb-2"></div>
@@ -43,19 +43,11 @@ const Dashboard = ({ apiUrl }) => {
           axios.get(`${apiUrl}/api/dispatch-delivery`),
         ]);
 
-        // Debugging logs
-        console.log("=== API Responses ===");
-        console.log("Raw Materials:", rawRes.data);
-        console.log("Finished Products:", finishedRes.data);
-        console.log("Stock Movements:", stockRes.data);
-        console.log("Dispatches:", dispatchRes.data);
-
         setRawMaterials(Array.isArray(rawRes.data) ? rawRes.data : []);
         setFinishedProducts(Array.isArray(finishedRes.data) ? finishedRes.data : []);
         setStockMovements(Array.isArray(stockRes.data) ? stockRes.data : []);
         setDispatches(Array.isArray(dispatchRes.data) ? dispatchRes.data : []);
       } catch (err) {
-        console.error("Dashboard fetch error:", err);
         setError("Failed to load dashboard data.");
       } finally {
         setLoading(false);
@@ -64,17 +56,14 @@ const Dashboard = ({ apiUrl }) => {
     fetchData();
   }, [apiUrl]);
 
-  // Filter dispatches
   const filteredDispatches = dispatches.filter(d => {
     const date = new Date(d.date);
     const afterStart = startDate ? date >= new Date(startDate) : true;
     const beforeEnd = endDate ? date <= new Date(endDate) : true;
-    const matchesProduct =
-      selectedProduct === "all" ? true : (d.item || d.productName) === selectedProduct;
+    const matchesProduct = selectedProduct === "all" ? true : (d.item || d.productName) === selectedProduct;
     return afterStart && beforeEnd && matchesProduct;
   });
 
-  // Aggregate monthly dispatch quantities
   const monthlyDispatch = filteredDispatches.reduce((acc, item) => {
     if (!item.date || !item.quantity) return acc;
     const month = new Date(item.date).toLocaleString("default", { month: "short" });
@@ -84,7 +73,6 @@ const Dashboard = ({ apiUrl }) => {
     return acc;
   }, []);
 
-  // Map finished products
   const finishedProductsData = finishedProducts.length
     ? finishedProducts.map(p => ({
         name: p.name || p.productName || "Unnamed",
@@ -92,7 +80,6 @@ const Dashboard = ({ apiUrl }) => {
       }))
     : [{ name: "No Data", quantity: 0 }];
 
-  // Map stock movements
   const stockMovementData = stockMovements.length
     ? stockMovements.map(m => ({
         item: m.item || m.productName || "Unnamed",
@@ -101,7 +88,6 @@ const Dashboard = ({ apiUrl }) => {
       }))
     : [{ item: "No Data", in: 0, out: 0 }];
 
-  // Map raw materials (correct lowercase)
   const rawMaterialData = rawMaterials.length
     ? rawMaterials.map(r => ({
         name: r.rawMaterialType || "Unnamed",
@@ -109,119 +95,98 @@ const Dashboard = ({ apiUrl }) => {
       }))
     : [{ name: "No Data", quantity: 0 }];
 
-  // Product options for filter dropdown
-  const productOptions = Array.from(
-    new Set(dispatches.map(d => d.item || d.productName).filter(Boolean))
-  );
+  const productOptions = Array.from(new Set(dispatches.map(d => d.item || d.productName).filter(Boolean)));
 
-  // Render loading / error
   if (loading) return <div className="p-4 space-y-6"><Shimmer /><Shimmer /><Shimmer /><Shimmer /></div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
-    <div className="p-4 max-w-7xl mx-auto space-y-8">
-      <h1 className="text-2xl font-bold mb-4">📊 BFC Dashboard</h1>
+    <div className="p-6 max-w-7xl mx-auto space-y-8 bg-gray-100 min-h-screen">
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">📊 BFC Dashboard</h1>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <div>
-          <label className="block font-semibold">Start Date</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            className="border p-2 rounded"
-          />
+      <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
+        <div className="flex flex-col">
+          <label className="font-medium text-gray-700 mb-1">Start Date</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="border-gray-300 border rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none" />
         </div>
-        <div>
-          <label className="block font-semibold">End Date</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-            className="border p-2 rounded"
-          />
+        <div className="flex flex-col">
+          <label className="font-medium text-gray-700 mb-1">End Date</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="border-gray-300 border rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none" />
         </div>
-        <div>
-          <label className="block font-semibold">Product</label>
-          <select
-            value={selectedProduct}
-            onChange={e => setSelectedProduct(e.target.value)}
-            className="border p-2 rounded"
-          >
+        <div className="flex flex-col">
+          <label className="font-medium text-gray-700 mb-1">Product</label>
+          <select value={selectedProduct} onChange={e => setSelectedProduct(e.target.value)}
+            className="border-gray-300 border rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none">
             <option value="all">All</option>
-            {productOptions.map(item => (
-              <option key={item} value={item}>{item}</option>
-            ))}
+            {productOptions.map(item => <option key={item} value={item}>{item}</option>)}
           </select>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* Dispatches Line Chart */}
-        <div className="p-4 border rounded bg-white">
-          <h3 className="font-bold mb-2">Monthly Dispatch Quantity</h3>
-          <p className="text-xs text-gray-500 mb-1">Debug: {JSON.stringify(monthlyDispatch)}</p>
-          {monthlyDispatch.length === 0 ? <p>No dispatch data available</p> :
+        {/* Dispatch Chart */}
+        <div className="bg-white shadow-md rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Monthly Dispatch Quantity</h3>
+          {monthlyDispatch.length === 0 ? <p className="text-gray-500">No dispatch data available</p> :
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={monthlyDispatch}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="quantity" stroke="#82ca9d" />
+                <Line type="monotone" dataKey="quantity" stroke="#2563eb" strokeWidth={3} />
               </LineChart>
             </ResponsiveContainer>
           }
         </div>
 
-        {/* Finished Products Bar Chart */}
-        <div className="p-4 border rounded bg-white">
-          <h3 className="font-bold mb-2">Finished Products Quantity</h3>
-          <p className="text-xs text-gray-500 mb-1">Debug: {JSON.stringify(finishedProductsData)}</p>
+        {/* Finished Products Chart */}
+        <div className="bg-white shadow-md rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Finished Products Quantity</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={finishedProductsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="quantity" fill="#8884d8" />
+              <Bar dataKey="quantity" fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Stock Movements Bar Chart */}
-        <div className="p-4 border rounded bg-white">
-          <h3 className="font-bold mb-2">Stock Movements (In vs Out)</h3>
-          <p className="text-xs text-gray-500 mb-1">Debug: {JSON.stringify(stockMovementData)}</p>
+        {/* Stock Movements */}
+        <div className="bg-white shadow-md rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Stock Movements (In vs Out)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stockMovementData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="item" />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="item" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="in" fill="#4ade80" />
-              <Bar dataKey="out" fill="#f87171" />
+              <Bar dataKey="in" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="out" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Raw Materials Bar Chart */}
-        <div className="p-4 border rounded bg-white">
-          <h3 className="font-bold mb-2">Raw Materials Quantity</h3>
-          <p className="text-xs text-gray-500 mb-1">Debug: {JSON.stringify(rawMaterialData)}</p>
+        {/* Raw Materials */}
+        <div className="bg-white shadow-md rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Raw Materials Quantity</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={rawMaterialData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="quantity" fill="#facc15" />
+              <Bar dataKey="quantity" fill="#facc15" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
