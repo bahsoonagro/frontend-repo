@@ -1,66 +1,77 @@
-// src/components/StockReports.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
-  Grid,
   Paper,
-  TextField,
-  Typography,
-  Tabs,
   Tab,
-  IconButton,
+  Tabs,
+  Typography,
   Alert,
 } from "@mui/material";
-import { Print, FileDownload } from "@mui/icons-material";
+import { FileDownload, Print } from "@mui/icons-material";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-const StockReports = ({ apiUrl }) => {
-  const [tab, setTab] = useState(0);
+// Table styles
+const thStyle = { padding: "8px", border: "1px solid #333", textAlign: "left" };
+const tdStyle = { padding: "8px", border: "1px solid #ccc" };
+const tdStyleCenter = { padding: "8px", border: "1px solid #ccc", textAlign: "center", color: "#777" };
+
+const Reporting = ({ apiUrl }) => {
+  const [tabValue, setTabValue] = useState(0);
+  const [lpos, setLPOs] = useState([]);
   const [rawMaterials, setRawMaterials] = useState([]);
   const [finishedProducts, setFinishedProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [stockMovements, setStockMovements] = useState([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const tableRef = useRef();
 
   useEffect(() => {
-    fetchAll();
-  }, [apiUrl, tab]);
+    fetchData();
+  }, [apiUrl]);
 
-  const fetchAll = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      if (tab === 0) {
-        const res = await axios.get(`${apiUrl}/api/documents`);
-        setDocuments(res.data);
-      } else if (tab === 1) {
-        const res = await axios.get(`${apiUrl}/api/raw-materials`);
-        setRawMaterials(res.data);
-      } else if (tab === 2) {
-        const res = await axios.get(`${apiUrl}/api/finished-products`);
-        setFinishedProducts(res.data);
-      } else if (tab === 3) {
-        const res = await axios.get(`${apiUrl}/api/customer-deliveries`);
-        setCustomers(res.data);
-      }
+      const [lpoRes, rmRes, fpRes, smRes] = await Promise.all([
+        axios.get(`${apiUrl}/raw-material/lpo`),
+        axios.get(`${apiUrl}/raw-material`),
+        axios.get(`${apiUrl}/finished-products`),
+        axios.get(`${apiUrl}/stock-movements`),
+      ]);
+      setLPOs(lpoRes.data);
+      setRawMaterials(rmRes.data);
+      setFinishedProducts(fpRes.data);
+      setStockMovements(smRes.data);
     } catch (err) {
-      setError("Failed to load data.");
+      setError("Failed to fetch reporting data.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (e, newValue) => {
-    setTab(newValue);
-    setError("");
+  const handleTabChange = (e, newValue) => setTabValue(newValue);
+
+  // Export Excel
+  const exportExcel = (data, filename) => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, filename);
+    XLSX.writeFile(wb, `${filename}.xlsx`);
   };
 
-  const handlePrint = () => {
+  // Export PDF
+  const exportPDF = (head, body, filename) => {
+    const doc = new jsPDF();
+    doc.autoTable({ head: [head], body });
+    doc.save(`${filename}.pdf`);
+  };
+
+  // Print table
+  const printTable = () => {
     const printContent = tableRef.current.outerHTML;
     const win = window.open("", "_blank");
     win.document.write(`<html><head><title>Report</title>
@@ -75,152 +86,246 @@ const StockReports = ({ apiUrl }) => {
     win.print();
   };
 
-  const exportExcel = (data, name) => {
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, name);
-    XLSX.writeFile(wb, `${name}.xlsx`);
-  };
-
-  const exportPDF = (columns, data, name) => {
-    const doc = new jsPDF();
-    doc.autoTable({ head: [columns], body: data });
-    doc.save(`${name}.pdf`);
-  };
-
-  const renderTable = () => {
-    if (tab === 0) {
-      const columns = ["Type", "Ref No", "Date", "Customer", "Actions"];
-      return (
-        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
-          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
-            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
-          </thead>
-          <tbody>
-            {documents.length === 0 ? (
-              <tr><td colSpan={5} style={tdStyleCenter}>No documents</td></tr>
-            ) : documents.map((d, i) => (
-              <tr key={d._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
-                <td style={tdStyle}>{d.type}</td>
-                <td style={tdStyle}>{d.refNo}</td>
-                <td style={tdStyle}>{new Date(d.date).toLocaleString()}</td>
-                <td style={tdStyle}>{d.customer || "-"}</td>
-                <td style={tdStyle}>
-                  <Button variant="outlined" size="small" href={`${apiUrl}/api/documents/download/${d._id}`} target="_blank">Download</Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    } else if (tab === 1) {
-      const columns = ["Material", "Batch", "Qty (Bags)", "Weight (Kg)"];
-      return (
-        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
-          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
-            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rawMaterials.length === 0 ? (
-              <tr><td colSpan={4} style={tdStyleCenter}>No raw materials</td></tr>
-            ) : rawMaterials.map((r, i) => (
-              <tr key={r._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
-                <td style={tdStyle}>{r.name}</td>
-                <td style={tdStyle}>{r.batch}</td>
-                <td style={tdStyle}>{r.quantityBags}</td>
-                <td style={tdStyle}>{r.weightKg}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    } else if (tab === 2) {
-      const columns = ["Product", "Batch", "Qty", "Packaging Date"];
-      return (
-        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
-          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
-            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
-          </thead>
-          <tbody>
-            {finishedProducts.length === 0 ? (
-              <tr><td colSpan={4} style={tdStyleCenter}>No finished products</td></tr>
-            ) : finishedProducts.map((f, i) => (
-              <tr key={f._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
-                <td style={tdStyle}>{f.name}</td>
-                <td style={tdStyle}>{f.batch}</td>
-                <td style={tdStyle}>{f.quantity}</td>
-                <td style={tdStyle}>{new Date(f.packagingDate).toLocaleDateString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    } else if (tab === 3) {
-      const columns = ["Customer", "Ref No", "Date", "Delivered Items"];
-      return (
-        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
-          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
-            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
-          </thead>
-          <tbody>
-            {customers.length === 0 ? (
-              <tr><td colSpan={4} style={tdStyleCenter}>No deliveries</td></tr>
-            ) : customers.map((c, i) => (
-              <tr key={c._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
-                <td style={tdStyle}>{c.name}</td>
-                <td style={tdStyle}>{c.refNo}</td>
-                <td style={tdStyle}>{new Date(c.date).toLocaleString()}</td>
-                <td style={tdStyle}>{c.items.map(it => `${it.name} (${it.qty})`).join(", ")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      );
-    }
-  };
-
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom color="primary">📄 Stock & Documents Hub</Typography>
+      <Typography variant="h4" gutterBottom color="primary">
+        📄 Reporting
+      </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2 }}>
-        <Tab label="Documents" />
+      <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
+        <Tab label="LPOs" />
         <Tab label="Raw Materials" />
         <Tab label="Finished Products" />
-        <Tab label="Customer Deliveries" />
+        <Tab label="Stock Movements" />
       </Tabs>
 
-      {/* Print & Export */}
-      <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
-        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={() => {
-          if (tab === 0) exportExcel(documents, "Documents");
-          else if (tab === 1) exportExcel(rawMaterials, "RawMaterials");
-          else if (tab === 2) exportExcel(finishedProducts, "FinishedProducts");
-          else if (tab === 3) exportExcel(customers, "CustomerDeliveries");
-        }}>Export Excel</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={() => {
-          if (tab === 0) exportPDF(["Type","Ref","Date","Customer","Actions"], documents.map(d=>[d.type,d.refNo,new Date(d.date).toLocaleString(),d.customer||"-","Download"]), "Documents");
-          else if (tab === 1) exportPDF(["Material","Batch","Qty","Weight"], rawMaterials.map(r=>[r.name,r.batch,r.quantityBags,r.weightKg]), "RawMaterials");
-          else if (tab === 2) exportPDF(["Product","Batch","Qty","Packaging"], finishedProducts.map(f=>[f.name,f.batch,f.quantity,f.packagingDate]), "FinishedProducts");
-          else if (tab === 3) exportPDF(["Customer","Ref","Date","Items"], customers.map(c=>[c.name,c.refNo,new Date(c.date).toLocaleString(),c.items.map(it=>`${it.name}(${it.qty})`).join(", ")]), "CustomerDeliveries");
-        }}>Export PDF</Button>
-      </Box>
+      {/* LPOs */}
+      {tabValue === 0 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>LPOs</Typography>
+          <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportExcel(lpos.map(l => ({
+              LPONo: l._id, Year: l.year, Supplier: l.supplier,
+              Items: l.items.map(i => `${i.name}(${i.quantity})`).join(", "),
+              Payment: l.payment, Comments: l.comments
+            })), "LPOs")}>Export Excel</Button>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportPDF(
+              ["LPONo","Year","Supplier","Items","Payment","Comments"],
+              lpos.map(l => [l._id, l.year, l.supplier, l.items.map(i => `${i.name}(${i.quantity})`).join(", "), l.payment, l.comments || "-"]),
+              "LPOs"
+            )}>Export PDF</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={printTable}>Print</Button>
+          </Box>
+          <Box sx={{ overflowX: "auto" }}>
+            <table ref={tableRef} style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+                <tr>
+                  <th style={thStyle}>LPO No</th>
+                  <th style={thStyle}>Year</th>
+                  <th style={thStyle}>Supplier</th>
+                  <th style={thStyle}>Items</th>
+                  <th style={thStyle}>Payment</th>
+                  <th style={thStyle}>Comments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lpos.length === 0 ? (
+                  <tr><td colSpan={6} style={tdStyleCenter}>No LPOs</td></tr>
+                ) : lpos.map(l => (
+                  <tr key={l._id} style={{ backgroundColor: "#f5f5f5" }}>
+                    <td style={tdStyle}>{l._id}</td>
+                    <td style={tdStyle}>{l.year}</td>
+                    <td style={tdStyle}>{l.supplier}</td>
+                    <td style={tdStyle}>{l.items.map(i => `${i.name}(${i.quantity})`).join(", ")}</td>
+                    <td style={tdStyle}>{l.payment}</td>
+                    <td style={tdStyle}>{l.comments || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </Paper>
+      )}
 
-      {/* Table */}
-      <Paper elevation={3}>
-        <Box sx={{ overflowX: "auto" }}>
-          {loading ? <Typography sx={{ p: 2 }}>Loading...</Typography> : renderTable()}
-        </Box>
-      </Paper>
+      {/* Raw Materials */}
+      {tabValue === 1 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>Raw Materials</Typography>
+          <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportExcel(rawMaterials.map(r => ({
+              Type: r.rawMaterialType,
+              Supplier: r.supplierName,
+              QuantityBags: r.supplierBags,
+              ExtraKg: r.extraKg,
+              TotalWeight: r.totalWeight,
+              StoreKeeper: r.storeKeeper,
+              BatchNumber: r.batchNumber,
+              Date: new Date(r.date).toLocaleDateString()
+            })), "RawMaterials")}>Export Excel</Button>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportPDF(
+              ["Type","Supplier","Bags","Extra Kg","Total Weight","StoreKeeper","Batch","Date"],
+              rawMaterials.map(r => [r.rawMaterialType, r.supplierName, r.supplierBags, r.extraKg, r.totalWeight, r.storeKeeper, r.batchNumber, new Date(r.date).toLocaleDateString()]),
+              "RawMaterials"
+            )}>Export PDF</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={printTable}>Print</Button>
+          </Box>
+          <Box sx={{ overflowX: "auto" }}>
+            <table ref={tableRef} style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+                <tr>
+                  <th style={thStyle}>Type</th>
+                  <th style={thStyle}>Supplier</th>
+                  <th style={thStyle}>Bags</th>
+                  <th style={thStyle}>Extra Kg</th>
+                  <th style={thStyle}>Total Weight</th>
+                  <th style={thStyle}>Store Keeper</th>
+                  <th style={thStyle}>Batch</th>
+                  <th style={thStyle}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rawMaterials.length === 0 ? (
+                  <tr><td colSpan={8} style={tdStyleCenter}>No Raw Materials</td></tr>
+                ) : rawMaterials.map(r => (
+                  <tr key={r._id} style={{ backgroundColor: "#f5f5f5" }}>
+                    <td style={tdStyle}>{r.rawMaterialType}</td>
+                    <td style={tdStyle}>{r.supplierName}</td>
+                    <td style={tdStyle}>{r.supplierBags}</td>
+                    <td style={tdStyle}>{r.extraKg}</td>
+                    <td style={tdStyle}>{r.totalWeight}</td>
+                    <td style={tdStyle}>{r.storeKeeper}</td>
+                    <td style={tdStyle}>{r.batchNumber}</td>
+                    <td style={tdStyle}>{new Date(r.date).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* Finished Products */}
+      {tabValue === 2 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>Finished Products</Typography>
+          <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportExcel(finishedProducts.map(f => ({
+              Name: f.name,
+              Quantity: f.quantity,
+              Batch: f.batchNumber,
+              Date: new Date(f.date).toLocaleDateString()
+            })), "FinishedProducts")}>Export Excel</Button>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportPDF(
+              ["Name","Quantity","Batch","Date"],
+              finishedProducts.map(f => [f.name, f.quantity, f.batchNumber, new Date(f.date).toLocaleDateString()]),
+              "FinishedProducts"
+            )}>Export PDF</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={printTable}>Print</Button>
+          </Box>
+          <Box sx={{ overflowX: "auto" }}>
+            <table ref={tableRef} style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+                <tr>
+                  <th style={thStyle}>Name</th>
+                  <th style={thStyle}>Quantity</th>
+                  <th style={thStyle}>Batch</th>
+                  <th style={thStyle}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finishedProducts.length === 0 ? (
+                  <tr><td colSpan={4} style={tdStyleCenter}>No Finished Products</td></tr>
+                ) : finishedProducts.map(f => (
+                  <tr key={f._id} style={{ backgroundColor: "#f5f5f5" }}>
+                    <td style={tdStyle}>{f.name}</td>
+                    <td style={tdStyle}>{f.quantity}</td>
+                    <td style={tdStyle}>{f.batchNumber}</td>
+                    <td style={tdStyle}>{new Date(f.date).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </Paper>
+      )}
+
+      {/* Stock Movements */}
+      {tabValue === 3 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>Stock Movements</Typography>
+          <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportExcel(stockMovements.map(m => ({
+              RequisitionNo: m.requisitionNo,
+              Date: new Date(m.dateTime).toLocaleString(),
+              RawMaterial: m.rawMaterial,
+              Batch: m.batchNumber,
+              QtyBags: m.quantityBags,
+              WeightRemoved: m.weightRemovedKg,
+              WeightReceived: m.weightReceivedKg,
+              Storeman: m.storeman,
+              CleaningReceiver: m.cleaningReceiver,
+              Remarks: m.remarks
+            })), "StockMovements")}>Export Excel</Button>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => exportPDF(
+              ["ReqNo","Date/Time","Raw Material","Batch","Qty","Weight Removed","Weight Received","Storeman","Receiver","Remarks"],
+              stockMovements.map(m => [
+                m.requisitionNo,
+                new Date(m.dateTime).toLocaleString(),
+                m.rawMaterial,
+                m.batchNumber,
+                m.quantityBags,
+                m.weightRemovedKg,
+                m.weightReceivedKg,
+                m.storeman,
+                m.cleaningReceiver,
+                m.remarks || "-"
+              ]),
+              "StockMovements"
+            )}>Export PDF</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={printTable}>Print</Button>
+          </Box>
+          <Box sx={{ overflowX: "auto" }}>
+            <table ref={tableRef} style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+                <tr>
+                  <th style={thStyle}>Req. No</th>
+                  <th style={thStyle}>Date/Time</th>
+                  <th style={thStyle}>Raw Material</th>
+                  <th style={thStyle}>Batch</th>
+                  <th style={thStyle}>Qty (Bags)</th>
+                  <th style={thStyle}>Weight Removed</th>
+                  <th style={thStyle}>Weight Received</th>
+                  <th style={thStyle}>Storeman</th>
+                  <th style={thStyle}>Receiver</th>
+                  <th style={thStyle}>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockMovements.length === 0 ? (
+                  <tr><td colSpan={10} style={tdStyleCenter}>No Stock Movements</td></tr>
+                ) : stockMovements.map(m => (
+                  <tr key={m._id} style={{ backgroundColor: "#f5f5f5" }}>
+                    <td style={tdStyle}>{m.requisitionNo}</td>
+                    <td style={tdStyle}>{new Date(m.dateTime).toLocaleString()}</td>
+                    <td style={tdStyle}>{m.rawMaterial}</td>
+                    <td style={tdStyle}>{m.batchNumber}</td>
+                    <td style={tdStyle}>{m.quantityBags}</td>
+                    <td style={tdStyle}>{m.weightRemovedKg}</td>
+                    <td style={tdStyle}>{m.weightReceivedKg}</td>
+                    <td style={tdStyle}>{m.storeman}</td>
+                    <td style={tdStyle}>{m.cleaningReceiver}</td>
+                    <td style={tdStyle}>{m.remarks || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        </Paper>
+      )}
+
     </Box>
   );
 };
 
-// Styles
-const thStyle = { padding: "8px", border: "1px solid #333", textAlign: "left" };
-const tdStyle = { padding: "8px", border: "1px solid #ccc" };
-const tdStyleCenter = { padding: "8px", border: "1px solid #ccc", textAlign: "center", color: "#777" };
-
-export default StockReports;
+export default Reporting;
