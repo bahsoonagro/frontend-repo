@@ -1,171 +1,226 @@
-// src/components/stock/Reports.jsx
-import React, { useEffect, useState } from "react";
+// src/components/StockReports.jsx
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Button,
+  Grid,
+  Paper,
+  TextField,
+  Typography,
+  Tabs,
+  Tab,
+  IconButton,
+  Alert,
+} from "@mui/material";
+import { Print, FileDownload } from "@mui/icons-material";
 import axios from "axios";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
-const Reports = ({ apiUrl }) => {
-  const [summary, setSummary] = useState(null);
-  const [recentMovements, setRecentMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
+const StockReports = ({ apiUrl }) => {
+  const [tab, setTab] = useState(0);
+  const [rawMaterials, setRawMaterials] = useState([]);
+  const [finishedProducts, setFinishedProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const tableRef = useRef();
 
-  // call: `${apiUrl}/api/reports/stock-summary`
   useEffect(() => {
-    if (!apiUrl) return;
-    const fetchData = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const res = await axios.get(`${apiUrl}/api/reports/stock-summary`);
-        setSummary(res.data.summary);
-        setRecentMovements(res.data.recentMovements);
-      } catch (err) {
-        console.error(err);
-        setError("Unable to load report data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [apiUrl]);
+    fetchAll();
+  }, [apiUrl, tab]);
 
-  if (!apiUrl) return <div className="p-4">No API URL provided.</div>;
+  const fetchAll = async () => {
+    setLoading(true);
+    try {
+      if (tab === 0) {
+        const res = await axios.get(`${apiUrl}/api/documents`);
+        setDocuments(res.data);
+      } else if (tab === 1) {
+        const res = await axios.get(`${apiUrl}/api/raw-materials`);
+        setRawMaterials(res.data);
+      } else if (tab === 2) {
+        const res = await axios.get(`${apiUrl}/api/finished-products`);
+        setFinishedProducts(res.data);
+      } else if (tab === 3) {
+        const res = await axios.get(`${apiUrl}/api/customer-deliveries`);
+        setCustomers(res.data);
+      }
+    } catch (err) {
+      setError("Failed to load data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTabChange = (e, newValue) => {
+    setTab(newValue);
+    setError("");
+  };
+
+  const handlePrint = () => {
+    const printContent = tableRef.current.outerHTML;
+    const win = window.open("", "_blank");
+    win.document.write(`<html><head><title>Report</title>
+      <style>
+        table { border-collapse: collapse; width: 100%; font-family: Arial; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background-color: #1976d2; color: white; }
+      </style>
+    </head><body>${printContent}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const exportExcel = (data, name) => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, name);
+    XLSX.writeFile(wb, `${name}.xlsx`);
+  };
+
+  const exportPDF = (columns, data, name) => {
+    const doc = new jsPDF();
+    doc.autoTable({ head: [columns], body: data });
+    doc.save(`${name}.pdf`);
+  };
+
+  const renderTable = () => {
+    if (tab === 0) {
+      const columns = ["Type", "Ref No", "Date", "Customer", "Actions"];
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
+          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
+          </thead>
+          <tbody>
+            {documents.length === 0 ? (
+              <tr><td colSpan={5} style={tdStyleCenter}>No documents</td></tr>
+            ) : documents.map((d, i) => (
+              <tr key={d._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                <td style={tdStyle}>{d.type}</td>
+                <td style={tdStyle}>{d.refNo}</td>
+                <td style={tdStyle}>{new Date(d.date).toLocaleString()}</td>
+                <td style={tdStyle}>{d.customer || "-"}</td>
+                <td style={tdStyle}>
+                  <Button variant="outlined" size="small" href={`${apiUrl}/api/documents/download/${d._id}`} target="_blank">Download</Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    } else if (tab === 1) {
+      const columns = ["Material", "Batch", "Qty (Bags)", "Weight (Kg)"];
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
+          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rawMaterials.length === 0 ? (
+              <tr><td colSpan={4} style={tdStyleCenter}>No raw materials</td></tr>
+            ) : rawMaterials.map((r, i) => (
+              <tr key={r._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                <td style={tdStyle}>{r.name}</td>
+                <td style={tdStyle}>{r.batch}</td>
+                <td style={tdStyle}>{r.quantityBags}</td>
+                <td style={tdStyle}>{r.weightKg}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    } else if (tab === 2) {
+      const columns = ["Product", "Batch", "Qty", "Packaging Date"];
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
+          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
+          </thead>
+          <tbody>
+            {finishedProducts.length === 0 ? (
+              <tr><td colSpan={4} style={tdStyleCenter}>No finished products</td></tr>
+            ) : finishedProducts.map((f, i) => (
+              <tr key={f._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                <td style={tdStyle}>{f.name}</td>
+                <td style={tdStyle}>{f.batch}</td>
+                <td style={tdStyle}>{f.quantity}</td>
+                <td style={tdStyle}>{new Date(f.packagingDate).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    } else if (tab === 3) {
+      const columns = ["Customer", "Ref No", "Date", "Delivered Items"];
+      return (
+        <table style={{ width: "100%", borderCollapse: "collapse" }} ref={tableRef}>
+          <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+            <tr>{columns.map((c, i) => <th key={i} style={thStyle}>{c}</th>)}</tr>
+          </thead>
+          <tbody>
+            {customers.length === 0 ? (
+              <tr><td colSpan={4} style={tdStyleCenter}>No deliveries</td></tr>
+            ) : customers.map((c, i) => (
+              <tr key={c._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                <td style={tdStyle}>{c.name}</td>
+                <td style={tdStyle}>{c.refNo}</td>
+                <td style={tdStyle}>{new Date(c.date).toLocaleString()}</td>
+                <td style={tdStyle}>{c.items.map(it => `${it.name} (${it.qty})`).join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+  };
 
   return (
-    <div className="bg-white p-4 rounded shadow max-w-7xl mx-auto">
-      <h3 className="text-xl font-bold mb-4">Stock Reports</h3>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom color="primary">📄 Stock & Documents Hub</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {loading ? (
-        <div>Loading report…</div>
-      ) : error ? (
-        <div className="text-red-600">{error}</div>
-      ) : (
-        <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-green-50 rounded">
-              <p className="text-sm text-gray-600">Total Stock Value</p>
-              <p className="text-2xl font-bold">
-                ${Number(summary.totalStockValue || 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="p-4 bg-blue-50 rounded">
-              <p className="text-sm text-gray-600">Total Item Types</p>
-              <p className="text-2xl font-bold">{summary.totalItemsCount}</p>
-            </div>
-            <div className="p-4 bg-red-50 rounded">
-              <p className="text-sm text-gray-600">Total Out (30d)</p>
-              <p className="text-2xl font-bold">{summary.totalOut30}</p>
-            </div>
-            <div className="p-4 bg-yellow-50 rounded">
-              <p className="text-sm text-gray-600">Total In (30d)</p>
-              <p className="text-2xl font-bold">{summary.totalIn30}</p>
-            </div>
-          </div>
+      <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2 }}>
+        <Tab label="Documents" />
+        <Tab label="Raw Materials" />
+        <Tab label="Finished Products" />
+        <Tab label="Customer Deliveries" />
+      </Tabs>
 
-          {/* Top items */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="p-4 border rounded">
-              <h4 className="font-semibold mb-2">Top by Quantity</h4>
-              <ol className="list-decimal pl-5">
-                {summary.topByQty.length === 0 ? (
-                  <li className="text-gray-500">No data</li>
-                ) : (
-                  summary.topByQty.map((t) => (
-                    <li key={t._id || t.name}>
-                      {t.name} — {t.quantity}
-                    </li>
-                  ))
-                )}
-              </ol>
-            </div>
+      {/* Print & Export */}
+      <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={() => {
+          if (tab === 0) exportExcel(documents, "Documents");
+          else if (tab === 1) exportExcel(rawMaterials, "RawMaterials");
+          else if (tab === 2) exportExcel(finishedProducts, "FinishedProducts");
+          else if (tab === 3) exportExcel(customers, "CustomerDeliveries");
+        }}>Export Excel</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={() => {
+          if (tab === 0) exportPDF(["Type","Ref","Date","Customer","Actions"], documents.map(d=>[d.type,d.refNo,new Date(d.date).toLocaleString(),d.customer||"-","Download"]), "Documents");
+          else if (tab === 1) exportPDF(["Material","Batch","Qty","Weight"], rawMaterials.map(r=>[r.name,r.batch,r.quantityBags,r.weightKg]), "RawMaterials");
+          else if (tab === 2) exportPDF(["Product","Batch","Qty","Packaging"], finishedProducts.map(f=>[f.name,f.batch,f.quantity,f.packagingDate]), "FinishedProducts");
+          else if (tab === 3) exportPDF(["Customer","Ref","Date","Items"], customers.map(c=>[c.name,c.refNo,new Date(c.date).toLocaleString(),c.items.map(it=>`${it.name}(${it.qty})`).join(", ")]), "CustomerDeliveries");
+        }}>Export PDF</Button>
+      </Box>
 
-            <div className="p-4 border rounded">
-              <h4 className="font-semibold mb-2">Top by Value</h4>
-              <ol className="list-decimal pl-5">
-                {summary.topByValue.length === 0 ? (
-                  <li className="text-gray-500">No data</li>
-                ) : (
-                  summary.topByValue.map((t, idx) => (
-                    <li key={t._id || idx}>
-                      {t.name} — ${Number(t.value || 0).toLocaleString()}
-                    </li>
-                  ))
-                )}
-              </ol>
-            </div>
-          </div>
-
-          {/* Low stock */}
-          <div className="mb-6">
-            <h4 className="font-semibold mb-2">Low Stock Alerts ({summary.lowStockCount})</h4>
-            {summary.lowStockCount === 0 ? (
-              <p className="text-gray-500">All items are above reorder level.</p>
-            ) : (
-              <div className="overflow-auto border rounded">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="p-2 border">Name</th>
-                      <th className="p-2 border">Quantity</th>
-                      <th className="p-2 border">Reorder Level</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.lowStockItems.map((it) => (
-                      <tr key={it._id} className="hover:bg-gray-50">
-                        <td className="p-2 border">{it.name}</td>
-                        <td className="p-2 border">{it.quantity}</td>
-                        <td className="p-2 border">{it.reorderLevel ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Recent movements */}
-          <div>
-            <h4 className="font-semibold mb-2">Recent Stock Movements</h4>
-            <div className="overflow-auto border rounded">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="p-2 border">Date</th>
-                    <th className="p-2 border">Item</th>
-                    <th className="p-2 border">Type</th>
-                    <th className="p-2 border">Quantity</th>
-                    <th className="p-2 border">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentMovements.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="p-4 text-center text-gray-500">
-                        No recent movements
-                      </td>
-                    </tr>
-                  ) : (
-                    recentMovements.map((m) => (
-                      <tr key={m._id} className="hover:bg-gray-50">
-                        <td className="p-2 border">{new Date(m.date).toLocaleString()}</td>
-                        <td className="p-2 border">{m.itemName}</td>
-                        <td className={`p-2 border ${m.type === "IN" ? "text-green-600" : m.type === "OUT" ? "text-red-600" : ""}`}>
-                          {m.type}
-                        </td>
-                        <td className="p-2 border">{m.quantity}</td>
-                        <td className="p-2 border">{m.notes || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+      {/* Table */}
+      <Paper elevation={3}>
+        <Box sx={{ overflowX: "auto" }}>
+          {loading ? <Typography sx={{ p: 2 }}>Loading...</Typography> : renderTable()}
+        </Box>
+      </Paper>
+    </Box>
   );
 };
 
-export default Reports;
+// Styles
+const thStyle = { padding: "8px", border: "1px solid #333", textAlign: "left" };
+const tdStyle = { padding: "8px", border: "1px solid #ccc" };
+const tdStyleCenter = { padding: "8px", border: "1px solid #ccc", textAlign: "center", color: "#777" };
+
+export default StockReports;
