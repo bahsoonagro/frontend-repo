@@ -1,103 +1,62 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { PlusIcon, UploadIcon, TrashIcon, PencilIcon } from "@heroicons/react/outline";
 
-// Shimmer loader
+// Shimmer placeholder for loading
 const Shimmer = () => (
-  <div className="animate-pulse space-y-3">
-    <div className="h-6 bg-gray-300 rounded w-1/3 mb-2"></div>
-    <div className="h-80 bg-gray-200 rounded"></div>
+  <div className="animate-pulse space-y-2">
+    <div className="h-6 bg-gray-300 rounded w-1/4 mb-2"></div>
+    <div className="h-40 bg-gray-200 rounded"></div>
   </div>
 );
 
 const RawMaterials = ({ apiUrl }) => {
-  const [rawMaterials, setRawMaterials] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchMaterials = async () => {
       try {
         const res = await axios.get(`${apiUrl}/api/raw-materials`);
-        setRawMaterials(res.data);
+        setMaterials(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        console.error("Fetch error:", err);
+        console.error("Error fetching raw materials:", err);
         setError("Failed to load raw materials.");
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchMaterials();
   }, [apiUrl]);
 
-  if (loading) return <Shimmer />;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <div className="p-4 space-y-4"><Shimmer /><Shimmer /></div>;
+  if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">📦 Raw Materials</h1>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition-all">
-            <PlusIcon className="w-5 h-5" /> Add Material
-          </button>
-          <button className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition-all">
-            <UploadIcon className="w-5 h-5" /> Bulk Upload
-          </button>
-        </div>
-      </div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">📦 Raw Materials Store</h2>
 
-      <div className="overflow-x-auto rounded-lg shadow-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Supplier
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Quantity
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Location
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Date
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {rawMaterials.map((rm) => (
-              <tr key={rm._id} className="hover:bg-gray-50 transition-all">
-                <td className="px-6 py-4 text-gray-800">{rm.rawMaterialType}</td>
-                <td className="px-6 py-4 text-gray-800">{rm.supplierName}</td>
-                <td className="px-6 py-4 text-gray-800">{rm.bagsAfterStd}</td>
-                <td className="px-6 py-4 text-gray-800">{rm.location}</td>
-                <td className="px-6 py-4 text-gray-800">{new Date(rm.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 text-center flex justify-center gap-2">
-                  <button className="text-blue-500 hover:text-blue-700 transition-all">
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  <button className="text-red-500 hover:text-red-700 transition-all">
-                    <TrashIcon className="w-5 h-5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {rawMaterials.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                  No raw materials available.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {materials.length === 0 && (
+          <p className="col-span-full text-gray-500">No raw materials available.</p>
+        )}
+
+        {materials.map((m) => (
+          <div key={m._id} className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow duration-300">
+            <h3 className="font-semibold text-lg text-gray-700 mb-2">{m.rawMaterialType}</h3>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Supplier:</span> {m.supplierName}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Phone:</span> {m.supplierPhone}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Bags:</span> {m.supplierBags}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Extra Kg:</span> {m.extraKg}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Total Weight:</span> {m.totalWeight} kg</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Store Keeper:</span> {m.storeKeeper}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Supervisor:</span> {m.supervisor}</p>
+            <p className="text-sm text-gray-500 mb-1"><span className="font-medium">Batch #:</span> {m.batchNumber}</p>
+            <p className={`text-sm font-medium mt-2 ${m.damaged === "Yes" ? "text-red-600" : "text-green-600"}`}>
+              {m.damaged === "Yes" ? "⚠ Damaged" : "✅ Good Condition"}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
