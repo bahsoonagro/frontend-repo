@@ -1,4 +1,4 @@
-// src/components/DispatchDeliveryFactoryStyled.jsx
+// src/components/DispatchDeliveryFactory.jsx
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import {
@@ -14,11 +14,11 @@ import {
   OutlinedInput,
   Paper,
   Typography,
-  IconButton,
   Grid,
 } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Toll groups and items
 const tollGroups = [
   { group: "Group 1: Kekeh (Tricycles)", price: 3 },
   { group: "Group 2: Taxis and Sedans", price: 5 },
@@ -43,7 +43,10 @@ const itemsList = [
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
-export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
+export default function DispatchDeliveryFactory({ personnelList }) {
+  // 🔹 Set your backend URL here
+  const apiUrl = "https://api.bahsoonagro.com"; // Replace with your actual backend URL
+
   const [formData, setFormData] = useState({
     item: "",
     quantity: "",
@@ -65,21 +68,22 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [successMsg, setSuccessMsg] = useState("");
   const printRef = useRef();
 
+  // Fetch dispatches from backend
   useEffect(() => {
-    if (!apiUrl) return;
+    const fetchDispatches = async () => {
+      try {
+        const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
+        console.log("Fetched dispatches:", res.data);
+        setDispatches(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("API Error:", err.response || err.message);
+        setError("Failed to load dispatches from backend.");
+      }
+    };
     fetchDispatches();
   }, [apiUrl]);
 
-  const fetchDispatches = async () => {
-    try {
-      const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
-      setDispatches(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load dispatches.");
-    }
-  };
-
+  // Form handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -135,7 +139,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
       });
       setError("");
     } catch (err) {
-      console.error(err);
+      console.error("Submit Error:", err.response || err.message);
       setError("Failed to save dispatch.");
     } finally {
       setLoading(false);
@@ -148,7 +152,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
       await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
       setDispatches(dispatches.filter((d) => d._id !== id));
     } catch (err) {
-      console.error(err);
+      console.error("Delete Error:", err.response || err.message);
       setError("Failed to delete dispatch.");
     }
   };
@@ -173,6 +177,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
+            {/* Form fields */}
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="item-label">Item</InputLabel>
@@ -181,12 +186,14 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
 
             <Grid item xs={12} md={3}><TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth size="small" /></Grid>
+
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="toll-label">Toll Group</InputLabel>
@@ -195,8 +202,10 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth size="small" /></Grid>
+
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="personnel-label">Personnel</InputLabel>
@@ -217,6 +226,7 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" /></Grid>
 
@@ -265,18 +275,6 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
                 ))}
               </AnimatePresence>
             </tbody>
-            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
-              <tr>
-                <td style={tdStyle} colSpan={7}>Totals</td>
-                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (tollGroups.find((g) => g.group === d.tollGroup)?.price || 0), 0)}</td>
-                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.fuelCost || 0), 0)}</td>
-                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.perDiem || 0), 0)}</td>
-                <td style={tdStyle}></td>
-                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.totalCost || 0), 0)}</td>
-                <td style={tdStyle}></td>
-                <td style={tdStyle}></td>
-              </tr>
-            </tfoot>
           </table>
         </Paper>
       </Box>
@@ -286,5 +284,4 @@ export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
 
 DispatchDeliveryFactory.defaultProps = {
   personnelList: [],
-  apiUrl: "",
 };
