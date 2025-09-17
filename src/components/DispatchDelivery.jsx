@@ -45,7 +45,7 @@ const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" 
 
 export default function DispatchDeliveryFactory({ personnelList }) {
   // 🔹 Set your backend URL here
-  const apiUrl = "https://api.bahsoonagro.com"; // Replace with your actual backend URL
+  const apiUrl = "https:/https://backend-repo-ydwt.onrender.com/"; // Replace with your actual backend URL
 
   const [formData, setFormData] = useState({
     item: "",
