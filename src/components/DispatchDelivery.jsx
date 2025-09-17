@@ -44,8 +44,8 @@ const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" 
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
 export default function DispatchDeliveryFactory({ personnelList }) {
-  // 🔹 Set your backend URL here
-  const apiUrl = "https:/https://backend-repo-ydwt.onrender.com/"; // Replace with your actual backend URL
+  // ✅ Correct backend URL
+  const apiUrl = "https://backend-repo-ydwt.onrender.com";
 
   const [formData, setFormData] = useState({
     item: "",
@@ -73,7 +73,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     const fetchDispatches = async () => {
       try {
         const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
-        console.log("Fetched dispatches:", res.data);
         setDispatches(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("API Error:", err.response || err.message);
