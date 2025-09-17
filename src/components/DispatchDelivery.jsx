@@ -1,5 +1,6 @@
+// src/components/DispatchDeliveryFactoryStyled.jsx
 import React, { useState, useEffect, useRef } from "react";
-import api from "../api"; // use centralized axios instance
+import axios from "axios";
 import {
   Box,
   Button,
@@ -13,6 +14,7 @@ import {
   OutlinedInput,
   Paper,
   Typography,
+  IconButton,
   Grid,
 } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,7 +43,7 @@ const itemsList = [
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
-export default function DispatchDeliveryFactory({ personnelList }) {
+export default function DispatchDeliveryFactory({ apiUrl, personnelList }) {
   const [formData, setFormData] = useState({
     item: "",
     quantity: "",
@@ -63,26 +65,20 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   const [successMsg, setSuccessMsg] = useState("");
   const printRef = useRef();
 
-  // 🔹 Load from backend or fallback to localStorage
+  useEffect(() => {
+    if (!apiUrl) return;
+    fetchDispatches();
+  }, [apiUrl]);
+
   const fetchDispatches = async () => {
     try {
-      const res = await api.get("/dispatch-delivery");
+      const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
       setDispatches(Array.isArray(res.data) ? res.data : []);
-      localStorage.setItem("dispatches", JSON.stringify(res.data)); // cache
     } catch (err) {
-      console.error("Backend unavailable, loading from cache.");
-      const cached = JSON.parse(localStorage.getItem("dispatches") || "[]");
-      setDispatches(cached);
-      setError("⚠️ Working offline — data loaded from cache.");
+      console.error(err);
+      setError("Failed to load dispatches.");
     }
   };
-
-  useEffect(() => {
-    fetchDispatches();
-    // Retry sync when internet comes back
-    window.addEventListener("online", syncOfflineData);
-    return () => window.removeEventListener("online", syncOfflineData);
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -93,7 +89,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     setFormData((prev) => ({ ...prev, personnel: e.target.value }));
   };
 
-  // 🔹 Auto-calc total
+  // Auto-calculate total cost
   useEffect(() => {
     const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
     const fuelCost = parseFloat(formData.fuelCost) || 0;
@@ -101,11 +97,10 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
   }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
-  // 🔹 Save dispatch (online or offline)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const required = ["item", "quantity", "date", "customer", "driver", "vehicle"];
-    for (const f of required) {
+    const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
+    for (const f of requiredFields) {
       if (!formData[f]) {
         setError(`Please fill in ${f}`);
         return;
@@ -121,55 +116,40 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         perDiem: Number(formData.perDiem),
         totalCost: Number(formData.totalCost),
       };
-
-      let res;
-      try {
-        res = await api.post("/dispatch-delivery", payload);
-        setDispatches((prev) => [res.data, ...prev]);
-        localStorage.setItem("dispatches", JSON.stringify([res.data, ...dispatches]));
-        setSuccessMsg("✅ Dispatch recorded successfully!");
-      } catch (err) {
-        console.warn("Backend unavailable, saving offline.");
-        const offline = JSON.parse(localStorage.getItem("offlineDispatches") || "[]");
-        offline.push(payload);
-        localStorage.setItem("offlineDispatches", JSON.stringify(offline));
-        setDispatches((prev) => [payload, ...prev]);
-        setSuccessMsg("📦 Saved offline — will sync later.");
-      }
-
-      resetForm();
+      const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
+      setDispatches((prev) => [res.data, ...prev]);
+      setSuccessMsg("Dispatch recorded successfully!");
+      setFormData({
+        item: "",
+        quantity: "",
+        date: "",
+        customer: "",
+        driver: "",
+        vehicle: "",
+        tollGroup: "",
+        fuelCost: 0,
+        perDiem: 0,
+        personnel: [],
+        totalCost: 0,
+        remarks: "",
+      });
       setError("");
+    } catch (err) {
+      console.error(err);
+      setError("Failed to save dispatch.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // 🔹 Sync offline dispatches once online
-  const syncOfflineData = async () => {
-    const offline = JSON.parse(localStorage.getItem("offlineDispatches") || "[]");
-    if (!offline.length) return;
-
-    try {
-      for (const d of offline) {
-        await api.post("/dispatch-delivery", d);
-      }
-      localStorage.removeItem("offlineDispatches");
-      fetchDispatches(); // refresh
-      alert("✅ Offline dispatches synced to backend.");
-    } catch (err) {
-      console.error("Failed to sync offline data.");
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this dispatch?")) return;
     try {
-      await api.delete(`/dispatch-delivery/${id}`);
+      await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
       setDispatches(dispatches.filter((d) => d._id !== id));
-      localStorage.setItem("dispatches", JSON.stringify(dispatches.filter((d) => d._id !== id)));
     } catch (err) {
       console.error(err);
-      setError("Failed to delete dispatch (backend offline?).");
+      setError("Failed to delete dispatch.");
     }
   };
 
@@ -186,23 +166,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     WinPrint.print();
   };
 
-  const resetForm = () => {
-    setFormData({
-      item: "",
-      quantity: "",
-      date: "",
-      customer: "",
-      driver: "",
-      vehicle: "",
-      tollGroup: "",
-      fuelCost: 0,
-      perDiem: 0,
-      personnel: [],
-      totalCost: 0,
-      remarks: "",
-    });
-  };
-
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>🚚 Dispatch & Delivery</Typography>
@@ -210,8 +173,56 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            {/* form inputs (unchanged, same as yours) */}
-            {/* ... keep all the inputs you already had ... */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="item-label">Item</InputLabel>
+                <Select labelId="item-label" name="item" value={formData.item} onChange={handleChange} input={<OutlinedInput label="Item" />}>
+                  {itemsList.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} md={3}><TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="toll-label">Toll Group</InputLabel>
+                <Select labelId="toll-label" name="tollGroup" value={formData.tollGroup} onChange={handleChange} input={<OutlinedInput label="Toll Group" />}>
+                  {tollGroups.map((g) => <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="personnel-label">Personnel</InputLabel>
+                <Select
+                  labelId="personnel-label"
+                  multiple
+                  value={formData.personnel}
+                  onChange={handlePersonnelChange}
+                  input={<OutlinedInput label="Personnel" />}
+                  renderValue={(selected) => selected.join(", ")}
+                >
+                  {(personnelList || []).map((p) => (
+                    <MenuItem key={p} value={p}>
+                      <Checkbox checked={formData.personnel.includes(p)} />
+                      <ListItemText primary={p} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
+              <Button variant="contained" color="success" type="submit" size="small">{loading ? "Saving..." : "➕ Record Dispatch"}</Button>
+            </Grid>
           </Grid>
         </form>
 
@@ -225,8 +236,49 @@ export default function DispatchDeliveryFactory({ personnelList }) {
           <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
         </Box>
 
-        {/* Table logic unchanged */}
-        {/* ... keep your table section ... */}
+        <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
+              <tr>
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {dispatches.map((d, i) => (
+                  <motion.tr key={d._id || i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
+                    <td style={tdStyle}>{d.item || "-"}</td>
+                    <td style={tdStyle}>{d.quantity || 0}</td>
+                    <td style={tdStyle}>{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
+                    <td style={tdStyle}>{d.customer || "-"}</td>
+                    <td style={tdStyle}>{d.driver || "-"}</td>
+                    <td style={tdStyle}>{d.vehicle || "-"}</td>
+                    <td style={tdStyle}>{d.tollGroup || "-"}</td>
+                    <td style={tdStyle}>{tollGroups.find((g) => g.group === d.tollGroup)?.price || 0}</td>
+                    <td style={tdStyle}>{d.fuelCost ?? 0}</td>
+                    <td style={tdStyle}>{d.perDiem ?? 0}</td>
+                    <td style={tdStyle}>{(d.personnel || []).join(", ")}</td>
+                    <td style={tdStyle}>{d.totalCost ?? 0}</td>
+                    <td style={tdStyle}>{d.remarks || "-"}</td>
+                    <td style={tdStyle}><Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button></td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
+              <tr>
+                <td style={tdStyle} colSpan={7}>Totals</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (tollGroups.find((g) => g.group === d.tollGroup)?.price || 0), 0)}</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.fuelCost || 0), 0)}</td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.perDiem || 0), 0)}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}>{dispatches.reduce((acc, d) => acc + (d.totalCost || 0), 0)}</td>
+                <td style={tdStyle}></td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          </table>
+        </Paper>
       </Box>
     </Box>
   );
@@ -234,4 +286,5 @@ export default function DispatchDeliveryFactory({ personnelList }) {
 
 DispatchDeliveryFactory.defaultProps = {
   personnelList: [],
+  apiUrl: "",
 };
