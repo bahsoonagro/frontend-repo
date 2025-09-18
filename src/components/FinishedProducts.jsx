@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
@@ -17,6 +17,7 @@ import { Delete, Print, FileDownload } from "@mui/icons-material";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import axios from "axios";
 
 const FINISHED_PRODUCTS = [
   "Bennimix 400g",
@@ -30,16 +31,8 @@ const FINISHED_PRODUCTS = [
   "Pikinmix 5kg",
 ];
 
-const INITIAL_STOCK = [
-  { productName: "Bennimix 50g", openingStock: 100, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Bennimix 400g", openingStock: 200, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Pikinmix 2kg", openingStock: 1089, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Pikinmix 1kg", openingStock: 1965, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Supermix 50g", openingStock: 14, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Pikinmix 4kg", openingStock: 20, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Pikinmix 5kg", openingStock: 2, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-  { productName: "Pikinmix 500g", openingStock: 25, stockIn: 0, stockOut: 0, storeKeeper: "", remarks: "" },
-];
+// Backend API
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
 
 export default function FinishedProducts() {
   const [formData, setFormData] = useState({
@@ -51,45 +44,65 @@ export default function FinishedProducts() {
     remarks: "",
   });
 
-  const [products, setProducts] = useState(INITIAL_STOCK);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const printRef = useRef();
+
+  // Fetch products from backend
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setProducts(res.data);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.productName || formData.openingStock === "") return;
 
-    if (editingIndex !== null) {
-      const updated = [...products];
-      updated[editingIndex] = { ...formData };
-      setProducts(updated);
-      setEditingIndex(null);
-    } else {
-      setProducts([...products, formData]);
+    try {
+      if (editingId) {
+        await axios.put(`${API_URL}/${editingId}`, formData);
+      } else {
+        await axios.post(API_URL, formData);
+      }
+      fetchProducts();
+      setFormData({
+        productName: "",
+        openingStock: "",
+        stockIn: 0,
+        stockOut: 0,
+        storeKeeper: "",
+        remarks: "",
+      });
+      setEditingId(null);
+    } catch (err) {
+      console.error("Save error:", err);
     }
-
-    setFormData({
-      productName: "",
-      openingStock: "",
-      stockIn: 0,
-      stockOut: 0,
-      storeKeeper: "",
-      remarks: "",
-    });
   };
 
-  const handleDelete = (index) => {
-    setProducts(products.filter((_, i) => i !== index));
-    if (editingIndex === index) setEditingIndex(null);
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/${id}`);
+      fetchProducts();
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
   };
 
-  const handleEdit = (index) => {
-    setFormData(products[index]);
-    setEditingIndex(index);
+  const handleEdit = (product) => {
+    setFormData(product);
+    setEditingId(product._id);
   };
 
   const calculateClosing = (product) =>
@@ -106,6 +119,7 @@ export default function FinishedProducts() {
     { openingStock: 0, stockIn: 0, stockOut: 0, closing: 0 }
   );
 
+  // Excel export
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
       products.map((p, i) => ({
@@ -125,6 +139,7 @@ export default function FinishedProducts() {
     XLSX.writeFile(wb, "FinishedProducts.xlsx");
   };
 
+  // PDF export
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text("Bennimix Food Company - Finished Products Inventory", 14, 15);
@@ -148,6 +163,7 @@ export default function FinishedProducts() {
     doc.save("FinishedProducts.pdf");
   };
 
+  // Print clean table
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
@@ -240,7 +256,7 @@ export default function FinishedProducts() {
           </Grid>
           <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
             <Button variant="contained" color="success" onClick={handleSave}>
-              {editingIndex !== null ? "Update Product" : "Save Product"}
+              {editingId ? "Update Product" : "Save Product"}
             </Button>
           </Grid>
         </Grid>
@@ -279,7 +295,7 @@ export default function FinishedProducts() {
             <tbody>
               {products.map((prod, i) => (
                 <tr
-                  key={i}
+                  key={prod._id}
                   style={{
                     backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff",
                   }}
@@ -295,12 +311,12 @@ export default function FinishedProducts() {
                   <td style={tdStyle}>{prod.remarks}</td>
                   <td style={tdStyle}>
                     <Tooltip title="Edit">
-                      <IconButton color="primary" size="small" onClick={() => handleEdit(i)}>
+                      <IconButton color="primary" size="small" onClick={() => handleEdit(prod)}>
                         ✏️
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton color="error" size="small" onClick={() => handleDelete(i)}>
+                      <IconButton color="error" size="small" onClick={() => handleDelete(prod._id)}>
                         <Delete />
                       </IconButton>
                     </Tooltip>
