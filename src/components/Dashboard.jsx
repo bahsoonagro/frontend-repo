@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
-import { FaBox, FaCubes, FaTruck, FaWarehouse } from "react-icons/fa";
 
-// Shimmer loader
+// Optional debug toggle
 const Shimmer = () => (
   <div className="animate-pulse space-y-2">
     <div className="h-6 bg-gray-300 rounded w-1/3 mb-2"></div>
@@ -22,6 +28,7 @@ const Dashboard = ({ apiUrl }) => {
   const [dispatches, setDispatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("all");
@@ -40,7 +47,7 @@ const Dashboard = ({ apiUrl }) => {
         setFinishedProducts(Array.isArray(finishedRes.data) ? finishedRes.data : []);
         setStockMovements(Array.isArray(stockRes.data) ? stockRes.data : []);
         setDispatches(Array.isArray(dispatchRes.data) ? dispatchRes.data : []);
-      } catch {
+      } catch (err) {
         setError("Failed to load dashboard data.");
       } finally {
         setLoading(false);
@@ -49,7 +56,6 @@ const Dashboard = ({ apiUrl }) => {
     fetchData();
   }, [apiUrl]);
 
-  // Filters
   const filteredDispatches = dispatches.filter(d => {
     const date = new Date(d.date);
     const afterStart = startDate ? date >= new Date(startDate) : true;
@@ -58,7 +64,6 @@ const Dashboard = ({ apiUrl }) => {
     return afterStart && beforeEnd && matchesProduct;
   });
 
-  // Monthly dispatch aggregation
   const monthlyDispatch = filteredDispatches.reduce((acc, item) => {
     if (!item.date || !item.quantity) return acc;
     const month = new Date(item.date).toLocaleString("default", { month: "short" });
@@ -68,68 +73,36 @@ const Dashboard = ({ apiUrl }) => {
     return acc;
   }, []);
 
-  // Chart data
   const finishedProductsData = finishedProducts.length
-    ? finishedProducts.map(p => ({ name: p.name || p.productName || "Unnamed", quantity: Number(p.quantity || p.qty || 0) }))
+    ? finishedProducts.map(p => ({
+        name: p.name || p.productName || "Unnamed",
+        quantity: Number(p.quantity || p.qty || 0),
+      }))
     : [{ name: "No Data", quantity: 0 }];
 
   const stockMovementData = stockMovements.length
-    ? stockMovements.map(m => ({ item: m.item || m.productName || "Unnamed", in: Number(m.quantityIn || m.qtyIn || 0), out: Number(m.quantityOut || m.qtyOut || 0) }))
+    ? stockMovements.map(m => ({
+        item: m.item || m.productName || "Unnamed",
+        in: Number(m.quantityIn || m.qtyIn || 0),
+        out: Number(m.quantityOut || m.qtyOut || 0),
+      }))
     : [{ item: "No Data", in: 0, out: 0 }];
 
   const rawMaterialData = rawMaterials.length
-    ? rawMaterials.map(r => ({ name: r.rawMaterialType || "Unnamed", quantity: Number(r.bagsAfterStd || 0) }))
+    ? rawMaterials.map(r => ({
+        name: r.rawMaterialType || "Unnamed",
+        quantity: Number(r.bagsAfterStd || 0),
+      }))
     : [{ name: "No Data", quantity: 0 }];
 
   const productOptions = Array.from(new Set(dispatches.map(d => d.item || d.productName).filter(Boolean)));
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#FF6361"];
 
   if (loading) return <div className="p-4 space-y-6"><Shimmer /><Shimmer /><Shimmer /><Shimmer /></div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
-  // Summary totals
-  const totalRawMaterials = rawMaterials.reduce((a,b)=>a+(b.bagsAfterStd||0),0);
-  const totalFinishedProducts = finishedProducts.reduce((a,b)=>a+(b.quantity||0),0);
-  const totalDispatches = dispatches.length;
-  const totalStockIn = stockMovements.reduce((a,b)=>a+(b.quantityIn||0),0);
-  const totalStockOut = stockMovements.reduce((a,b)=>a+(b.quantityOut||0),0);
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8 bg-gray-100 min-h-screen">
-
       <h1 className="text-3xl font-extrabold text-gray-900 mb-6">📊 BFC Dashboard</h1>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white shadow hover:shadow-lg transition p-4 rounded-lg flex items-center gap-4">
-          <FaWarehouse className="text-3xl text-blue-500" />
-          <div>
-            <p className="text-gray-500 text-sm">Total Raw Materials</p>
-            <p className="text-2xl font-bold">{totalRawMaterials}</p>
-          </div>
-        </div>
-        <div className="bg-white shadow hover:shadow-lg transition p-4 rounded-lg flex items-center gap-4">
-          <FaBox className="text-3xl text-green-500" />
-          <div>
-            <p className="text-gray-500 text-sm">Finished Products</p>
-            <p className="text-2xl font-bold">{totalFinishedProducts}</p>
-          </div>
-        </div>
-        <div className="bg-white shadow hover:shadow-lg transition p-4 rounded-lg flex items-center gap-4">
-          <FaTruck className="text-3xl text-purple-500" />
-          <div>
-            <p className="text-gray-500 text-sm">Dispatches</p>
-            <p className="text-2xl font-bold">{totalDispatches}</p>
-          </div>
-        </div>
-        <div className="bg-white shadow hover:shadow-lg transition p-4 rounded-lg flex items-center gap-4">
-          <FaCubes className="text-3xl text-red-500" />
-          <div>
-            <p className="text-gray-500 text-sm">Stock In vs Out</p>
-            <p className="text-2xl font-bold">In: {totalStockIn} / Out: {totalStockOut}</p>
-          </div>
-        </div>
-      </div>
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
@@ -155,7 +128,7 @@ const Dashboard = ({ apiUrl }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* Monthly Dispatch */}
+        {/* Dispatch Chart */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-2 text-gray-800">Monthly Dispatch Quantity</h3>
           {monthlyDispatch.length === 0 ? <p className="text-gray-500">No dispatch data available</p> :
@@ -172,7 +145,7 @@ const Dashboard = ({ apiUrl }) => {
           }
         </div>
 
-        {/* Finished Products */}
+        {/* Finished Products Chart */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-2 text-gray-800">Finished Products Quantity</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -182,48 +155,39 @@ const Dashboard = ({ apiUrl }) => {
               <YAxis stroke="#6b7280" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="quantity" fill="#10b981" radius={[4,4,0,0]} />
+              <Bar dataKey="quantity" fill="#10b981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Stock Movements (Stacked) */}
+        {/* Stock Movements */}
         <div className="bg-white shadow-md rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-2 text-gray-800">Stock Movements (In vs Out)</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stockMovementData} stackOffset="expand">
+            <BarChart data={stockMovementData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="item" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="in" stackId="a" fill="#2563eb" />
-              <Bar dataKey="out" stackId="a" fill="#ef4444" />
+              <Bar dataKey="in" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="out" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Raw Materials (Pie Chart) */}
+        {/* Raw Materials */}
         <div className="bg-white shadow-md rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-2 text-gray-800">Raw Materials Distribution</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Raw Materials Quantity</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={rawMaterialData}
-                dataKey="quantity"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                label
-              >
-                {rawMaterialData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
+            <BarChart data={rawMaterialData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
               <Tooltip />
-            </PieChart>
+              <Legend />
+              <Bar dataKey="quantity" fill="#facc15" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
 
@@ -233,3 +197,5 @@ const Dashboard = ({ apiUrl }) => {
 };
 
 export default Dashboard;
+
+
