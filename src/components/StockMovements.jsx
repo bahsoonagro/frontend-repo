@@ -1,243 +1,289 @@
-// src/components/FinishedProductsFactory.jsx
-import React, { useEffect, useState } from "react";
+// src/components/StockManagement.jsx
+import React, { useState, useEffect } from "react";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  TextField,
+  MenuItem,
+  Paper,
+  Typography,
+} from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
+const API_URL = "/api/stock-movements"; // backend route
 
-export default function FinishedProductsFactory() {
-  const [products, setProducts] = useState([]);
+export default function StockManagement() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    productName: "",
+    type: "IN",
+    requisitionNo: "",
+    rawMaterial: "",
     batchNumber: "",
-    productionDate: "",
-    quantityKg: "",
-    unit: "",
-    remarks: "",
+    quantityBags: "",
+    weightRemovedKg: "",
+    weightReceivedKg: "",
+    storeman: "",
+    cleaningReceiver: "",
+    notes: "",
   });
-  const [editingId, setEditingId] = useState(null);
+  const [editId, setEditId] = useState(null);
 
-  // fetch products
-  const fetchProducts = async () => {
+  // Fetch data
+  const fetchData = async () => {
+    setLoading(true);
     try {
       const res = await axios.get(API_URL);
-      setProducts(res.data);
+      setRows(res.data);
     } catch (err) {
       console.error("Fetch error:", err);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchData();
   }, []);
 
-  // handle form input
+  // Handle form input
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // submit form
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Save (create/update)
+  const handleSave = async () => {
     try {
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, form);
+      if (editId) {
+        const res = await axios.put(`${API_URL}/${editId}`, form);
+        setRows((prev) =>
+          prev.map((row) => (row._id === editId ? res.data : row))
+        );
       } else {
-        await axios.post(API_URL, form);
+        const res = await axios.post(API_URL, form);
+        setRows((prev) => [...prev, res.data]);
       }
+      setOpen(false);
       setForm({
-        productName: "",
+        type: "IN",
+        requisitionNo: "",
+        rawMaterial: "",
         batchNumber: "",
-        productionDate: "",
-        quantityKg: "",
-        unit: "",
-        remarks: "",
+        quantityBags: "",
+        weightRemovedKg: "",
+        weightReceivedKg: "",
+        storeman: "",
+        cleaningReceiver: "",
+        notes: "",
       });
-      setEditingId(null);
-      fetchProducts();
+      setEditId(null);
     } catch (err) {
       console.error("Save error:", err);
     }
   };
 
-  // edit product
-  const handleEdit = (product) => {
-    setForm({
-      productName: product.productName,
-      batchNumber: product.batchNumber,
-      productionDate: product.productionDate.split("T")[0],
-      quantityKg: product.quantityKg,
-      unit: product.unit,
-      remarks: product.remarks || "",
-    });
-    setEditingId(product._id);
-  };
-
-  // delete product
+  // Delete row
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
       await axios.delete(`${API_URL}/${id}`);
-      fetchProducts();
+      setRows((prev) => prev.filter((row) => row._id !== id));
     } catch (err) {
       console.error("Delete error:", err);
     }
   };
 
-  // print/export clean table
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    const tableHTML = document.getElementById("finishedProductsTable").outerHTML;
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Finished Products Report</title>
-          <style>
-            table { border-collapse: collapse; width: 100%; font-family: Arial; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <h2>Finished Products Report</h2>
-          ${tableHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  // Open edit
+  const handleEdit = (row) => {
+    setForm(row);
+    setEditId(row._id);
+    setOpen(true);
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl shadow"
-      >
-        <input
-          name="productName"
-          placeholder="Product Name"
-          value={form.productName}
-          onChange={handleChange}
-          className="border p-2 rounded"
-          required
-        />
-        <input
-          name="batchNumber"
-          placeholder="Batch Number"
-          value={form.batchNumber}
-          onChange={handleChange}
-          className="border p-2 rounded"
-          required
-        />
-        <input
-          type="date"
-          name="productionDate"
-          value={form.productionDate}
-          onChange={handleChange}
-          className="border p-2 rounded"
-          required
-        />
-        <input
-          type="number"
-          name="quantityKg"
-          placeholder="Quantity (Kg)"
-          value={form.quantityKg}
-          onChange={handleChange}
-          className="border p-2 rounded"
-          required
-        />
-        <input
-          name="unit"
-          placeholder="Unit (e.g. bags, cartons)"
-          value={form.unit}
-          onChange={handleChange}
-          className="border p-2 rounded"
-          required
-        />
-        <input
-          name="remarks"
-          placeholder="Remarks"
-          value={form.remarks}
-          onChange={handleChange}
-          className="border p-2 rounded col-span-2"
-        />
-        <button
-          type="submit"
-          className="bg-green-600 text-white px-4 py-2 rounded col-span-2"
-        >
-          {editingId ? "Update Product" : "Add Product"}
-        </button>
-      </form>
+  // Table columns
+  const columns = [
+    { field: "type", headerName: "Type", width: 100 },
+    { field: "requisitionNo", headerName: "Requisition No", width: 150 },
+    { field: "rawMaterial", headerName: "Raw Material", width: 150 },
+    { field: "batchNumber", headerName: "Batch No", width: 120 },
+    { field: "quantityBags", headerName: "Bags", width: 100 },
+    { field: "weightRemovedKg", headerName: "Removed (Kg)", width: 130 },
+    { field: "weightReceivedKg", headerName: "Received (Kg)", width: 130 },
+    { field: "storeman", headerName: "Storeman", width: 120 },
+    { field: "cleaningReceiver", headerName: "Receiver", width: 120 },
+    { field: "notes", headerName: "Notes", width: 200 },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 180,
+      renderCell: (params) => (
+        <>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => handleEdit(params.row)}
+            sx={{ mr: 1 }}
+          >
+            Edit
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            onClick={() => handleDelete(params.row._id)}
+          >
+            Delete
+          </Button>
+        </>
+      ),
+    },
+  ];
 
-      {/* Table */}
-      <div className="bg-white p-4 rounded-xl shadow">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold">Finished Products List</h2>
-          <button
-            onClick={handlePrint}
-            className="bg-blue-600 text-white px-3 py-1 rounded"
-          >
-            Print/Export
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table
-            id="finishedProductsTable"
-            className="min-w-full border border-gray-300"
-          >
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border px-4 py-2">Product Name</th>
-                <th className="border px-4 py-2">Batch No.</th>
-                <th className="border px-4 py-2">Production Date</th>
-                <th className="border px-4 py-2">Quantity (Kg)</th>
-                <th className="border px-4 py-2">Unit</th>
-                <th className="border px-4 py-2">Remarks</th>
-                <th className="border px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p._id} className="hover:bg-gray-50">
-                  <td className="border px-4 py-2">{p.productName}</td>
-                  <td className="border px-4 py-2">{p.batchNumber}</td>
-                  <td className="border px-4 py-2">
-                    {new Date(p.productionDate).toLocaleDateString()}
-                  </td>
-                  <td className="border px-4 py-2">{p.quantityKg}</td>
-                  <td className="border px-4 py-2">{p.unit}</td>
-                  <td className="border px-4 py-2">{p.remarks}</td>
-                  <td className="border px-4 py-2 space-x-2">
-                    <button
-                      onClick={() => handleEdit(p)}
-                      className="bg-yellow-500 text-white px-2 py-1 rounded"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p._id)}
-                      className="bg-red-600 text-white px-2 py-1 rounded"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td
-                    colSpan="7"
-                    className="text-center py-4 text-gray-500 italic"
-                  >
-                    No products available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  return (
+    <Box p={2}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6">Stock Movement Management</Typography>
+        <Button
+          variant="contained"
+          sx={{ mt: 2 }}
+          onClick={() => setOpen(true)}
+        >
+          Add Stock Movement
+        </Button>
+      </Paper>
+
+      <DataGrid
+        rows={rows}
+        columns={columns}
+        getRowId={(row) => row._id}
+        autoHeight
+        loading={loading}
+        disableSelectionOnClick
+        pageSize={5}
+        rowsPerPageOptions={[5, 10, 20]}
+      />
+
+      {/* Dialog Form */}
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>
+          {editId ? "Edit Stock Movement" : "Add Stock Movement"}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} mt={1}>
+            <Grid item xs={6}>
+              <TextField
+                select
+                fullWidth
+                label="Type"
+                name="type"
+                value={form.type}
+                onChange={handleChange}
+              >
+                <MenuItem value="IN">IN</MenuItem>
+                <MenuItem value="OUT">OUT</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Requisition No"
+                fullWidth
+                name="requisitionNo"
+                value={form.requisitionNo}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Raw Material"
+                fullWidth
+                name="rawMaterial"
+                value={form.rawMaterial}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Batch Number"
+                fullWidth
+                name="batchNumber"
+                value={form.batchNumber}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                type="number"
+                label="Quantity (Bags)"
+                fullWidth
+                name="quantityBags"
+                value={form.quantityBags}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                type="number"
+                label="Weight Removed (Kg)"
+                fullWidth
+                name="weightRemovedKg"
+                value={form.weightRemovedKg}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                type="number"
+                label="Weight Received (Kg)"
+                fullWidth
+                name="weightReceivedKg"
+                value={form.weightReceivedKg}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Storeman"
+                fullWidth
+                name="storeman"
+                value={form.storeman}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Receiver"
+                fullWidth
+                name="cleaningReceiver"
+                value={form.cleaningReceiver}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Notes"
+                fullWidth
+                multiline
+                rows={2}
+                name="notes"
+                value={form.notes}
+                onChange={handleChange}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
+            {editId ? "Update" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
