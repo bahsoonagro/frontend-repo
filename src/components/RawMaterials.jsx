@@ -47,9 +47,7 @@ export default function RawMaterials() {
   const [lpoItems, setLpoItems] = useState([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
   const [lpoData, setLpoData] = useState({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
 
-  useEffect(() => {
-    fetchMaterials();
-  }, []);
+  useEffect(() => { fetchMaterials(); }, []);
 
   const fetchMaterials = async () => {
     try {
@@ -73,10 +71,31 @@ export default function RawMaterials() {
 
   const handleSaveMaterial = async () => {
     try {
-      const newEntry = { ...formData, bagsAfterStd, totalWeight };
+      // Ensure proper date
+      const materialDate = formData.date ? new Date(formData.date) : new Date();
+
+      const newEntry = { 
+        ...formData, 
+        date: materialDate, 
+        bagsAfterStd, 
+        totalWeight 
+      };
+
       const res = await axios.post(API_URL, newEntry);
       setMaterials([...materials, res.data]);
-      setFormData({ ...formData, supplierName: "", supplierPhone: "", supplierBags: "", extraKg: "", storeKeeper: "", supervisor: "", location: "", date: "", batchNumber: "" });
+
+      setFormData({
+        rawMaterialType: RAW_MATERIALS_TABS[currentTab],
+        supplierName: "",
+        supplierPhone: "",
+        supplierBags: "",
+        extraKg: "",
+        storeKeeper: "",
+        supervisor: "",
+        location: "",
+        batchNumber: "",
+        date: ""
+      });
       setStep(1);
     } catch (err) {
       console.error(err.response?.data || err.message);
@@ -106,7 +125,7 @@ export default function RawMaterials() {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
     WinPrint.document.write("<html><head><title>Raw Materials Inventory</title>");
-    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;} tr:hover{background-color:#e3f2fd;}</style>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
     WinPrint.document.write("</head><body>");
     WinPrint.document.write(printContent);
     WinPrint.document.write("</body></html>");
