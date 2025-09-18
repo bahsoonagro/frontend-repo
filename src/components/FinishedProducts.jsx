@@ -1,66 +1,39 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Box,
-  Button,
-  Grid,
-  TextField,
-  Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
-  Paper,
-  Typography,
-  IconButton,
-  Tooltip,
+  Box, Button, Grid, TextField, Select, MenuItem,
+  InputLabel, FormControl, Paper, Typography, IconButton, Tooltip
 } from "@mui/material";
 import { Delete, Print, FileDownload } from "@mui/icons-material";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import axios from "axios";
 
 const FINISHED_PRODUCTS = [
-  "Bennimix 400g",
-  "Bennimix 50g",
-  "Pikinmix 500g",
-  "Pikinmix 1kg",
-  "Pikinmix 2kg",
-  "Pikinmix (generic)",
-  "Supermix 50g",
-  "Pikinmix 4kg",
-  "Pikinmix 5kg",
+  "Bennimix 400g", "Bennimix 50g", "Pikinmix 500g", "Pikinmix 1kg",
+  "Pikinmix 2kg", "Pikinmix (generic)", "Supermix 50g",
+  "Pikinmix 4kg", "Pikinmix 5kg"
 ];
-
-// Backend API
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
 
 export default function FinishedProducts() {
   const [formData, setFormData] = useState({
     productName: "",
-    openingStock: "",
-    stockIn: 0,
-    stockOut: 0,
-    storeKeeper: "",
+    batchNumber: "",
+    productionDate: "",
+    quantityKg: "",
+    unit: "",
     remarks: "",
   });
 
   const [products, setProducts] = useState([]);
-  const [editingId, setEditingId] = useState(null);
   const printRef = useRef();
 
-  // Fetch products from backend
+  // Fetch data from backend
   useEffect(() => {
-    fetchProducts();
+    fetch("https://backend-repo-ydwt.onrender.com/api/finished-products")
+      .then((res) => res.json())
+      .then((data) => setProducts(data))
+      .catch((err) => console.error("Fetch error:", err));
   }, []);
-
-  const fetchProducts = async () => {
-    try {
-      const res = await axios.get(API_URL);
-      setProducts(res.data);
-    } catch (err) {
-      console.error("Error fetching products:", err);
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -68,69 +41,63 @@ export default function FinishedProducts() {
   };
 
   const handleSave = async () => {
-    if (!formData.productName || formData.openingStock === "") return;
+    if (!formData.productName || !formData.batchNumber || !formData.productionDate || !formData.quantityKg || !formData.unit) {
+      alert("All required fields must be filled!");
+      return;
+    }
+
+    const cleanedData = {
+      ...formData,
+      quantityKg: Number(formData.quantityKg) || 0,
+      productionDate: new Date(formData.productionDate),
+    };
 
     try {
-      if (editingId) {
-        await axios.put(`${API_URL}/${editingId}`, formData);
-      } else {
-        await axios.post(API_URL, formData);
-      }
-      fetchProducts();
+      const res = await fetch("https://backend-repo-ydwt.onrender.com/api/finished-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cleanedData),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      setProducts([...products, data]);
+
       setFormData({
         productName: "",
-        openingStock: "",
-        stockIn: 0,
-        stockOut: 0,
-        storeKeeper: "",
+        batchNumber: "",
+        productionDate: "",
+        quantityKg: "",
+        unit: "",
         remarks: "",
       });
-      setEditingId(null);
     } catch (err) {
-      console.error("Save error:", err);
+      console.error("Save error:", err.message);
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${API_URL}/${id}`);
-      fetchProducts();
+      await fetch(`https://backend-repo-ydwt.onrender.com/api/finished-products/${id}`, {
+        method: "DELETE",
+      });
+      setProducts(products.filter((p) => p._id !== id));
     } catch (err) {
-      console.error("Delete error:", err);
+      console.error("Delete error:", err.message);
     }
   };
 
-  const handleEdit = (product) => {
-    setFormData(product);
-    setEditingId(product._id);
-  };
-
-  const calculateClosing = (product) =>
-    Number(product.openingStock || 0) + Number(product.stockIn || 0) - Number(product.stockOut || 0);
-
-  const totals = products.reduce(
-    (acc, p) => {
-      acc.openingStock += Number(p.openingStock || 0);
-      acc.stockIn += Number(p.stockIn || 0);
-      acc.stockOut += Number(p.stockOut || 0);
-      acc.closing += calculateClosing(p);
-      return acc;
-    },
-    { openingStock: 0, stockIn: 0, stockOut: 0, closing: 0 }
-  );
-
-  // Excel export
+  // Export Excel
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
       products.map((p, i) => ({
         "S/N": i + 1,
-        "Stock Item": p.productName,
-        "Opening Stock": p.openingStock,
-        "Stock In": p.stockIn,
-        "Total Qty": Number(p.openingStock) + Number(p.stockIn),
-        "Stock Out": p.stockOut,
-        "Closing Stock": calculateClosing(p),
-        "Store Keeper": p.storeKeeper,
+        "Product": p.productName,
+        "Batch Number": p.batchNumber,
+        "Production Date": new Date(p.productionDate).toLocaleDateString(),
+        "Quantity (Kg)": p.quantityKg,
+        "Unit": p.unit,
         "Remarks": p.remarks,
       }))
     );
@@ -139,22 +106,20 @@ export default function FinishedProducts() {
     XLSX.writeFile(wb, "FinishedProducts.xlsx");
   };
 
-  // PDF export
+  // Export PDF
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text("Bennimix Food Company - Finished Products Inventory", 14, 15);
+    doc.text("Bennimix Food Company - Finished Products", 14, 15);
     doc.autoTable({
       startY: 20,
-      head: [["S/N","Stock Item","Opening Stock","Stock In","Total Qty","Stock Out","Closing Stock","Store Keeper","Remarks"]],
+      head: [["S/N","Product","Batch Number","Production Date","Quantity (Kg)","Unit","Remarks"]],
       body: products.map((p, i) => [
         i + 1,
         p.productName,
-        p.openingStock,
-        p.stockIn,
-        Number(p.openingStock) + Number(p.stockIn),
-        p.stockOut,
-        calculateClosing(p),
-        p.storeKeeper,
+        p.batchNumber,
+        new Date(p.productionDate).toLocaleDateString(),
+        p.quantityKg,
+        p.unit,
         p.remarks
       ]),
       theme: "grid",
@@ -163,11 +128,11 @@ export default function FinishedProducts() {
     doc.save("FinishedProducts.pdf");
   };
 
-  // Print clean table
+  // Print Table (clean version, no buttons)
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
-    WinPrint.document.write("<html><head><title>Finished Product Inventory</title>");
+    WinPrint.document.write("<html><head><title>Finished Products</title>");
     WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
     WinPrint.document.write("</head><body>");
     WinPrint.document.write(printContent);
@@ -180,12 +145,12 @@ export default function FinishedProducts() {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 3, color: "#1976d2" }}>
-        Finished Products Inventory
+        Finished Products
       </Typography>
 
       {/* Input Form */}
       <Paper elevation={6} sx={{ p: 2, mb: 4, borderRadius: 3 }}>
-        <Grid container spacing={1}>
+        <Grid container spacing={2}>
           <Grid item xs={6} sm={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Product</InputLabel>
@@ -201,68 +166,35 @@ export default function FinishedProducts() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="openingStock"
-              label="Opening Stock"
-              type="number"
-              size="small"
-              value={formData.openingStock}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="stockIn"
-              label="Stock In"
-              type="number"
-              size="small"
-              value={formData.stockIn}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="stockOut"
-              label="Stock Out"
-              type="number"
-              size="small"
-              value={formData.stockOut}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="storeKeeper"
-              label="Store Keeper"
-              size="small"
-              value={formData.storeKeeper}
-              onChange={handleChange}
-              fullWidth
-            />
+          <Grid item xs={6} sm={3}>
+            <TextField name="batchNumber" label="Batch Number" size="small"
+              value={formData.batchNumber} onChange={handleChange} fullWidth />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <TextField
-              name="remarks"
-              label="Remarks"
-              size="small"
-              value={formData.remarks}
-              onChange={handleChange}
-              fullWidth
-            />
+            <TextField name="productionDate" label="Production Date" type="date" size="small"
+              value={formData.productionDate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
           </Grid>
-          <Grid item xs={12} sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+          <Grid item xs={6} sm={2}>
+            <TextField name="quantityKg" label="Quantity (Kg)" type="number" size="small"
+              value={formData.quantityKg} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField name="unit" label="Unit" size="small"
+              value={formData.unit} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField name="remarks" label="Remarks" size="small"
+              value={formData.remarks} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={12}>
             <Button variant="contained" color="success" onClick={handleSave}>
-              {editingId ? "Update Product" : "Save Product"}
+              Save Product
             </Button>
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Table + Print + Export */}
+      {/* Print + Export */}
       <Box mb={2} display="flex" gap={2}>
         <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
           Print Table
@@ -275,46 +207,33 @@ export default function FinishedProducts() {
         </Button>
       </Box>
 
+      {/* Table */}
       <Box ref={printRef}>
         <Paper elevation={3} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <th style={thStyle}>S/N</th>
-                <th style={thStyle}>Stock Item</th>
-                <th style={thStyle}>Opening Stock</th>
-                <th style={thStyle}>Stock In</th>
-                <th style={thStyle}>Total Qty</th>
-                <th style={thStyle}>Stock Out</th>
-                <th style={thStyle}>Closing Stock</th>
-                <th style={thStyle}>Store Keeper</th>
-                <th style={thStyle}>Remarks</th>
-                <th style={thStyle}>Actions</th>
+                <th>S/N</th>
+                <th>Product</th>
+                <th>Batch No.</th>
+                <th>Production Date</th>
+                <th>Quantity (Kg)</th>
+                <th>Unit</th>
+                <th>Remarks</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.map((prod, i) => (
-                <tr
-                  key={prod._id}
-                  style={{
-                    backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff",
-                  }}
-                >
-                  <td style={tdStyle}>{i + 1}</td>
-                  <td style={tdStyle}>{prod.productName}</td>
-                  <td style={tdStyle}>{prod.openingStock}</td>
-                  <td style={tdStyle}>{prod.stockIn}</td>
-                  <td style={tdStyle}>{Number(prod.openingStock) + Number(prod.stockIn)}</td>
-                  <td style={tdStyle}>{prod.stockOut}</td>
-                  <td style={tdStyle}>{calculateClosing(prod)}</td>
-                  <td style={tdStyle}>{prod.storeKeeper}</td>
-                  <td style={tdStyle}>{prod.remarks}</td>
-                  <td style={tdStyle}>
-                    <Tooltip title="Edit">
-                      <IconButton color="primary" size="small" onClick={() => handleEdit(prod)}>
-                        ✏️
-                      </IconButton>
-                    </Tooltip>
+                <tr key={prod._id}>
+                  <td>{i + 1}</td>
+                  <td>{prod.productName}</td>
+                  <td>{prod.batchNumber}</td>
+                  <td>{new Date(prod.productionDate).toLocaleDateString()}</td>
+                  <td>{prod.quantityKg}</td>
+                  <td>{prod.unit}</td>
+                  <td>{prod.remarks}</td>
+                  <td>
                     <Tooltip title="Delete">
                       <IconButton color="error" size="small" onClick={() => handleDelete(prod._id)}>
                         <Delete />
@@ -325,31 +244,15 @@ export default function FinishedProducts() {
               ))}
               {products.length === 0 && (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>
+                  <td colSpan="8" style={{ textAlign: "center", padding: "10px" }}>
                     No finished products found.
                   </td>
                 </tr>
               )}
             </tbody>
-            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
-              <tr>
-                <td style={tdStyle} colSpan={2}>Totals</td>
-                <td style={tdStyle}>{totals.openingStock}</td>
-                <td style={tdStyle}>{totals.stockIn}</td>
-                <td style={tdStyle}>{totals.openingStock + totals.stockIn}</td>
-                <td style={tdStyle}>{totals.stockOut}</td>
-                <td style={tdStyle}>{totals.closing}</td>
-                <td style={tdStyle}></td>
-                <td style={tdStyle}></td>
-                <td style={tdStyle}></td>
-              </tr>
-            </tfoot>
           </table>
         </Paper>
       </Box>
     </Box>
   );
 }
-
-const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
-const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
