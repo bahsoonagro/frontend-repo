@@ -17,10 +17,9 @@ import axios from "axios";
 import * as XLSX from "xlsx";
 
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
-const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
+const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/lpo";
 
 const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
-
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
@@ -42,12 +41,23 @@ export default function RawMaterials() {
   const [step, setStep] = useState(1);
   const printRef = useRef();
 
-  // LPO state
+  // LPO State
   const [lpoStep, setLpoStep] = useState(1);
-  const [lpoItems, setLpoItems] = useState([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
-  const [lpoData, setLpoData] = useState({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+  const [lpoItems, setLpoItems] = useState([{ name: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const [lpoData, setLpoData] = useState({
+    year: new Date().getFullYear(),
+    supplier: "",
+    payment: "Pending",
+    comments: "",
+    fuelCost: 0,
+    perDiem: 0,
+    tollFee: 0,
+    miscellaneous: 0,
+  });
 
-  useEffect(() => { fetchMaterials(); }, []);
+  useEffect(() => {
+    fetchMaterials();
+  }, []);
 
   const fetchMaterials = async () => {
     try {
@@ -60,28 +70,21 @@ export default function RawMaterials() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const bagsAfterStd = Math.floor(formData.supplierBags || 0);
   const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
 
-  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
-  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
+  const handleNext = () => setStep(prev => Math.min(prev + 1, 3));
+  const handlePrev = () => setStep(prev => Math.max(prev - 1, 1));
 
   const handleSaveMaterial = async () => {
     try {
-      // Ensure proper date
       const materialDate = formData.date ? new Date(formData.date) : new Date();
+      const payload = { ...formData, date: materialDate, bagsAfterStd, totalWeight };
 
-      const newEntry = { 
-        ...formData, 
-        date: materialDate, 
-        bagsAfterStd, 
-        totalWeight 
-      };
-
-      const res = await axios.post(API_URL, newEntry);
+      const res = await axios.post(API_URL, payload);
       setMaterials([...materials, res.data]);
 
       setFormData({
@@ -105,21 +108,18 @@ export default function RawMaterials() {
   const handleDeleteMaterial = async (id) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      setMaterials(materials.filter((m) => m._id !== id));
+      setMaterials(materials.filter(m => m._id !== id));
     } catch (err) {
       console.error(err.response?.data || err.message);
     }
   };
 
   const calculateTotals = (filtered) =>
-    filtered.reduce(
-      (acc, m) => {
-        acc.bagsAfterStd += Number(m.bagsAfterStd || 0);
-        acc.totalWeight += Number(m.totalWeight || 0);
-        return acc;
-      },
-      { bagsAfterStd: 0, totalWeight: 0 }
-    );
+    filtered.reduce((acc, m) => {
+      acc.bagsAfterStd += Number(m.bagsAfterStd || 0);
+      acc.totalWeight += Number(m.totalWeight || 0);
+      return acc;
+    }, { bagsAfterStd: 0, totalWeight: 0 });
 
   const handlePrintTable = () => {
     const printContent = printRef.current.innerHTML;
@@ -135,7 +135,7 @@ export default function RawMaterials() {
   };
 
   const exportTableToExcel = () => {
-    const filtered = materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]);
+    const filtered = materials.filter(m => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]);
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((m, i) => ({
         "S/N": i + 1,
@@ -162,19 +162,22 @@ export default function RawMaterials() {
     updatedItems[index][name] = value;
     setLpoItems(updatedItems);
   };
-  const addLpoItem = () => setLpoItems([...lpoItems, { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const addLpoItem = () => setLpoItems([...lpoItems, { name: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
   const removeLpoItem = (index) => setLpoItems(lpoItems.filter((_, i) => i !== index));
+
   const handleLpoChange = (e) => {
     const { name, value } = e.target;
-    setLpoData((prev) => ({ ...prev, [name]: value }));
+    setLpoData(prev => ({ ...prev, [name]: value }));
   };
+
   const handleSaveLpo = async () => {
     try {
-      const totalCost = lpoItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
-      const payload = { ...lpoData, items: lpoItems, totalCost };
+      const payload = { ...lpoData, items: lpoItems };
       await axios.post(LPO_URL, payload);
-      setLpoItems([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
-      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+
+      // Reset
+      setLpoItems([{ name: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "Pending", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
       setLpoStep(1);
       alert("LPO saved successfully!");
     } catch (err) {
@@ -191,7 +194,7 @@ export default function RawMaterials() {
         {RAW_MATERIALS_TABS.map((tab, i) => <Tab label={tab} key={i} />)}
       </Tabs>
 
-      {/* Raw Material Multi-Step Form */}
+      {/* Raw Material Form */}
       <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         {step === 1 && (
           <Grid container spacing={1}>
@@ -226,22 +229,26 @@ export default function RawMaterials() {
         )}
       </Paper>
 
-      {/* LPO Multi-Step Form */}
+      {/* LPO Form */}
       <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Local Purchase Order (LPO)</Typography>
 
+        {/* Step 1 */}
         {lpoStep === 1 && (
           <Grid container spacing={1}>
             <Grid item xs={12} md={3}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} md={2}><TextField label="Year" name="year" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={2}><TextField label="Year" name="year" type="number" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={2}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
-              <Button variant="contained" size="small" color="primary" onClick={() => setLpoStep(2)}>Next →</Button>
-            </Grid>
+            <Grid item xs={12} md={1.5}><TextField label="Fuel Cost" name="fuelCost" type="number" value={lpoData.fuelCost} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={1.5}><TextField label="Per Diem" name="perDiem" type="number" value={lpoData.perDiem} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={1.5}><TextField label="Toll Fee" name="tollFee" type="number" value={lpoData.tollFee} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={1.5}><TextField label="Misc." name="miscellaneous" type="number" value={lpoData.miscellaneous} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}><Button variant="contained" size="small" color="primary" onClick={() => setLpoStep(2)}>Next →</Button></Grid>
           </Grid>
         )}
 
+        {/* Step 2 */}
         {lpoStep === 2 && (
           <Box>
             <AnimatePresence>
@@ -249,7 +256,7 @@ export default function RawMaterials() {
                 <motion.div key={i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
                   <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
                     <Grid item xs={12} md={3}>
-                      <TextField select label="Material" name="rawMaterialType" value={item.rawMaterialType} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" SelectProps={{ native: true }}>
+                      <TextField select label="Material" name="name" value={item.name} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" SelectProps={{ native: true }}>
                         {RAW_MATERIALS_TABS.map((tab, j) => <option value={tab} key={j}>{tab}</option>)}
                       </TextField>
                     </Grid>
@@ -296,39 +303,24 @@ export default function RawMaterials() {
             </thead>
             <tbody>
               <AnimatePresence>
-                {materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab])
+                {materials.filter(m => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab])
                   .map((m, i) => (
-                  <motion.tr key={m._id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
-                    <td style={tdStyle}>{m.rawMaterialType}</td>
-                    <td style={tdStyle}>{m.supplierName}</td>
-                    <td style={tdStyle}>{m.bagsAfterStd}</td>
-                    <td style={tdStyle}>{m.totalWeight}</td>
-                    <td style={tdStyle}>{m.batchNumber}</td>
-                    <td style={tdStyle}>{m.storeKeeper}</td>
-                    <td style={tdStyle}>{m.supervisor}</td>
-                    <td style={tdStyle}>{m.location}</td>
-                    <td style={tdStyle}><IconButton color="error" size="small" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton></td>
-                  </motion.tr>
-                ))}
+                    <motion.tr key={m._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <td style={tdStyle}>{i + 1}</td>
+                      <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
+                      <td style={tdStyle}>{m.rawMaterialType}</td>
+                      <td style={tdStyle}>{m.supplierName}</td>
+                      <td style={tdStyle}>{m.bagsAfterStd}</td>
+                      <td style={tdStyle}>{m.totalWeight}</td>
+                      <td style={tdStyle}>{m.batchNumber}</td>
+                      <td style={tdStyle}>{m.storeKeeper}</td>
+                      <td style={tdStyle}>{m.supervisor}</td>
+                      <td style={tdStyle}>{m.location}</td>
+                      <td style={tdStyle}><IconButton color="error" size="small" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton></td>
+                    </motion.tr>
+                  ))}
               </AnimatePresence>
             </tbody>
-            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
-              <tr>
-                <td style={tdStyle} colSpan={4}>Totals</td>
-                {(() => {
-                  const totals = calculateTotals(materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]));
-                  return (
-                    <>
-                      <td style={tdStyle}>{totals.bagsAfterStd}</td>
-                      <td style={tdStyle}>{totals.totalWeight}</td>
-                      <td style={tdStyle} colSpan={5}></td>
-                    </>
-                  );
-                })()}
-              </tr>
-            </tfoot>
           </table>
         </Paper>
       </Box>
