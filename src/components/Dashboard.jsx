@@ -1,3 +1,4 @@
+// src/components/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -7,7 +8,6 @@ import {
 } from "recharts";
 import { FaBox, FaCubes, FaTruck, FaWarehouse } from "react-icons/fa";
 
-// Shimmer loader
 const Shimmer = () => (
   <div className="animate-pulse space-y-2">
     <div className="h-6 bg-gray-300 rounded w-1/3 mb-2"></div>
@@ -26,8 +26,6 @@ const Dashboard = ({ apiUrl }) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("all");
-
-  // Filter type when clicking cards: 'all', 'raw', 'finished', 'dispatch', 'stock'
   const [filterType, setFilterType] = useState("all");
 
   useEffect(() => {
@@ -52,7 +50,6 @@ const Dashboard = ({ apiUrl }) => {
     fetchData();
   }, [apiUrl]);
 
-  // Filtered dispatches
   const filteredDispatches = dispatches.filter(d => {
     const date = new Date(d.date);
     const afterStart = startDate ? date >= new Date(startDate) : true;
@@ -70,13 +67,24 @@ const Dashboard = ({ apiUrl }) => {
     return acc;
   }, []);
 
+  const getBarColor = (value, max = 100) => {
+    const ratio = value / max;
+    if (ratio < 0.25) return "#ef4444"; // red
+    if (ratio < 0.6) return "#facc15"; // yellow
+    return "#10b981"; // green
+  };
+
   const finishedProductsData = finishedProducts
     .filter(p => filterType === "all" || filterType === "finished")
     .map(p => ({ name: p.name || p.productName || "Unnamed", quantity: Number(p.quantity || p.qty || 0) }));
 
   const stockMovementData = stockMovements
     .filter(m => filterType === "all" || filterType === "stock")
-    .map(m => ({ item: m.item || m.productName || "Unnamed", in: Number(m.quantityIn || m.qtyIn || 0), out: Number(m.quantityOut || m.qtyOut || 0) }));
+    .map(m => ({
+      item: m.item || m.productName || "Unnamed",
+      in: Number(m.quantityIn || m.qtyIn || 0),
+      out: Number(m.quantityOut || m.qtyOut || 0)
+    }));
 
   const rawMaterialData = rawMaterials
     .filter(r => filterType === "all" || filterType === "raw")
@@ -94,7 +102,6 @@ const Dashboard = ({ apiUrl }) => {
   const totalStockIn = stockMovements.reduce((a,b)=>a+(b.quantityIn||0),0);
   const totalStockOut = stockMovements.reduce((a,b)=>a+(b.quantityOut||0),0);
 
-  // Handle Line Chart click
   const handleLineClick = (data) => {
     if (data && data.activeLabel) {
       const monthProducts = filteredDispatches.filter(d => {
@@ -110,7 +117,7 @@ const Dashboard = ({ apiUrl }) => {
     <div className="p-6 max-w-7xl mx-auto space-y-8 bg-gray-100 min-h-screen">
       <h1 className="text-3xl font-extrabold text-gray-900 mb-6">📊 BFC Dashboard</h1>
 
-      {/* Clickable Summary Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {[
           {label:"Raw Materials", icon:FaWarehouse, value:totalRawMaterials, type:"raw", color:"blue-500"},
@@ -119,7 +126,7 @@ const Dashboard = ({ apiUrl }) => {
           {label:"Stock In vs Out", icon:FaCubes, value:`In:${totalStockIn} / Out:${totalStockOut}`, type:"stock", color:"red-500"},
         ].map((card)=>(
           <div key={card.label} 
-               className={`bg-white shadow hover:shadow-lg transition p-4 rounded-lg flex items-center gap-4 cursor-pointer ${filterType===card.type ? 'ring-2 ring-blue-400' : ''}`}
+               className={`bg-white shadow transition transform hover:scale-105 hover:shadow-xl p-4 rounded-lg flex items-center gap-4 cursor-pointer ${filterType===card.type ? 'ring-2 ring-blue-400' : ''}`}
                onClick={()=>setFilterType(filterType===card.type?"all":card.type)}>
             <card.icon className={`text-3xl text-${card.color}`} />
             <div>
@@ -155,7 +162,7 @@ const Dashboard = ({ apiUrl }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Monthly Dispatch */}
-        <div className="bg-white shadow-md rounded-lg p-4">
+        <div className="bg-white shadow-md rounded-lg p-4 hover:shadow-xl transition transform hover:scale-105">
           <h3 className="text-lg font-semibold mb-2 text-gray-800">Monthly Dispatch Quantity</h3>
           {monthlyDispatch.length === 0 ? <p className="text-gray-500">No dispatch data available</p> :
             <ResponsiveContainer width="100%" height={300}>
@@ -165,10 +172,37 @@ const Dashboard = ({ apiUrl }) => {
                 <YAxis stroke="#6b7280" />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="quantity" stroke="#2563eb" strokeWidth={3} />
+                <Line type="monotone" dataKey="quantity" stroke="#2563eb" strokeWidth={3} activeDot={{ r: 10 }} />
               </LineChart>
             </ResponsiveContainer>
           }
         </div>
 
-        {/* Finished Products
+        {/* Finished Products */}
+        <div className="bg-white shadow-md rounded-lg p-4 hover:shadow-xl transition transform hover:scale-105">
+          <h3 className="text-lg font-semibold mb-2 text-gray-800">Finished Products Quantity</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={finishedProductsData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip formatter={(value)=>[value,"Qty"]} />
+              <Legend />
+              <Bar dataKey="quantity" radius={[4,4,0,0]}>
+                {finishedProductsData.map((entry,index)=>(
+                  <Cell key={`cell-${index}`} fill={getBarColor(entry.quantity,200)} 
+                        className="transition-transform duration-300 hover:scale-105" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+      </div>
+
+      {/* Add more sections like Stock Movements & Raw Materials with same hover effects */}
+    </div>
+  );
+};
+
+export default Dashboard;
