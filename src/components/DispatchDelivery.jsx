@@ -18,16 +18,6 @@ import {
 } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 
-const tollGroups = [
-  { group: "Group 1: Kekeh (Tricycles)", price: 3 },
-  { group: "Group 2: Taxis and Sedans", price: 5 },
-  { group: "Group 3: SUVs, Pickup Jeeps, Mini Buses", price: 10 },
-  { group: "Group 4: Coaches, Light Vans, Small Trucks", price: 40 },
-  { group: "Group 5: Fuel Tankers (2 Axles)", price: 250 },
-  { group: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", price: 400 },
-  { group: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", price: 600 },
-];
-
 const itemsList = [
   "Bennimix 50g",
   "Bennimix 400g",
@@ -39,7 +29,7 @@ const itemsList = [
   "Pikinmix 5kg",
 ];
 
-const statusOptions = ["Pending", "In Progress", "Completed"];
+const statuses = ["Pending", "In Progress", "Completed"];
 
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
@@ -54,23 +44,20 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     customer: "",
     driver: "",
     vehicle: "",
-    tollGroup: "",
     fuelCost: 0,
     perDiem: 0,
     personnel: [],
     totalCost: 0,
-    remarks: "",
     status: "Pending",
+    remarks: "",
   });
 
   const [dispatches, setDispatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const printRef = useRef();
 
-  // Fetch dispatches
   useEffect(() => {
     const fetchDispatches = async () => {
       try {
@@ -82,9 +69,8 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       }
     };
     fetchDispatches();
-  }, [apiUrl]);
+  }, []);
 
-  // Form handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -95,11 +81,10 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   };
 
   useEffect(() => {
-    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
     const fuelCost = parseFloat(formData.fuelCost) || 0;
     const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
-    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
-  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
+    setFormData((prev) => ({ ...prev, totalCost: fuelCost + perDiem }));
+  }, [formData.fuelCost, formData.perDiem, formData.personnel]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -110,7 +95,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         return;
       }
     }
-
     try {
       setLoading(true);
       const payload = {
@@ -130,13 +114,12 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         customer: "",
         driver: "",
         vehicle: "",
-        tollGroup: "",
         fuelCost: 0,
         perDiem: 0,
         personnel: [],
         totalCost: 0,
-        remarks: "",
         status: "Pending",
+        remarks: "",
       });
       setError("");
     } catch (err) {
@@ -160,7 +143,17 @@ export default function DispatchDeliveryFactory({ personnelList }) {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const res = await axios.put(`${apiUrl}/api/dispatch-delivery/${id}`, { status: newStatus });
+      const dispatch = dispatches.find(d => d._id === id);
+      if (!dispatch) return;
+
+      const perDiem = (dispatch.perDiem || 0) * ((dispatch.personnel?.length) || 1);
+      const updatedTotal = (dispatch.fuelCost || 0) + perDiem;
+
+      const res = await axios.put(`${apiUrl}/api/dispatch-delivery/${id}`, {
+        status: newStatus,
+        totalCost: updatedTotal,
+      });
+
       setDispatches(dispatches.map(d => d._id === id ? res.data : d));
     } catch (err) {
       console.error("Status Update Error:", err.response || err.message);
@@ -169,17 +162,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   };
 
   const handlePrint = () => {
-    const table = printRef.current.querySelector("table").cloneNode(true);
-    const headers = table.querySelectorAll("th");
-    const actionIndex = Array.from(headers).findIndex(h => h.innerText === "Actions");
-    if (actionIndex > -1) {
-      headers[actionIndex].remove();
-      table.querySelectorAll("tr").forEach(tr => {
-        const cells = tr.querySelectorAll("td");
-        if (cells[actionIndex]) cells[actionIndex].remove();
-      });
-    }
-
+    const table = printRef.current.querySelector("table");
     const WinPrint = window.open("", "", "width=900,height=650");
     WinPrint.document.write("<html><head><title>Dispatch Deliveries</title>");
     WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
@@ -191,8 +174,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     WinPrint.print();
   };
 
-  const filteredDispatches = filterStatus ? dispatches.filter(d => d.status === filterStatus) : dispatches;
-
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>🚚 Dispatch & Delivery</Typography>
@@ -200,70 +181,97 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            {/* Form fields */}
-            {/* ...existing form fields... */}
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="item-label">Item</InputLabel>
+                <Select labelId="item-label" name="item" value={formData.item} onChange={handleChange} input={<OutlinedInput label="Item" />}>
+                  {itemsList.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} md={3}><TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="personnel-label">Personnel</InputLabel>
+                <Select
+                  labelId="personnel-label"
+                  multiple
+                  value={formData.personnel}
+                  onChange={handlePersonnelChange}
+                  input={<OutlinedInput label="Personnel" />}
+                  renderValue={(selected) => selected.join(", ")}
+                >
+                  {(personnelList || []).map((p) => (
+                    <MenuItem key={p} value={p}>
+                      <Checkbox checked={formData.personnel.includes(p)} />
+                      <ListItemText primary={p} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="status-label">Status</InputLabel>
                 <Select labelId="status-label" name="status" value={formData.status} onChange={handleChange} input={<OutlinedInput label="Status" />}>
-                  {statusOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-          </Grid>
-          <Box display="flex" justifyContent="flex-end" mt={2}>
-            <Button variant="contained" color="success" type="submit">{loading ? "Saving..." : "➕ Record Dispatch"}</Button>
-          </Box>
-        </form>
-        {error && <Box sx={{ mt: 2, color: "red" }}>{error}</Box>}
-        {successMsg && <Box sx={{ mt: 2, color: "green" }}>{successMsg}</Box>}
-      </Paper>
 
-      {/* Filter & Table */}
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
-        <FormControl size="small">
-          <InputLabel id="filter-status-label">Filter Status</InputLabel>
-          <Select labelId="filter-status-label" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} input={<OutlinedInput label="Filter Status" />}>
-            <MenuItem value="">All</MenuItem>
-            {statusOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-          </Select>
-        </FormControl>
-      </Box>
+            <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
+              <Button variant="contained" color="success" type="submit" size="small">{loading ? "Saving..." : "➕ Record Dispatch"}</Button>
+            </Grid>
+          </Grid>
+        </form>
+
+        {error && <Box sx={{ mt: 2, color: "red", fontWeight: "bold" }}>{error}</Box>}
+        {successMsg && <Box sx={{ mt: 2, color: "green", fontWeight: "bold" }}>{successMsg}</Box>}
+      </Paper>
 
       <Box ref={printRef} sx={{ mt: 3 }}>
         <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
           <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
         </Box>
+
         <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Status","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Fuel","Per Diem","Personnel","Total Cost","Status","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
-                {filteredDispatches.map((d) => (
-                  <motion.tr key={d._id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
-                    <td style={tdStyle}>{d.item}</td>
-                    <td style={tdStyle}>{d.quantity}</td>
+                {dispatches.map((d, i) => (
+                  <motion.tr key={d._id || i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
+                    <td style={tdStyle}>{d.item || "-"}</td>
+                    <td style={tdStyle}>{d.quantity || 0}</td>
                     <td style={tdStyle}>{d.date ? new Date(d.date).toLocaleDateString() : "-"}</td>
-                    <td style={tdStyle}>{d.customer}</td>
-                    <td style={tdStyle}>{d.driver}</td>
-                    <td style={tdStyle}>{d.vehicle}</td>
-                    <td style={tdStyle}>{d.tollGroup}</td>
-                    <td style={tdStyle}>{tollGroups.find(g => g.group === d.tollGroup)?.price || 0}</td>
-                    <td style={tdStyle}>{d.fuelCost}</td>
-                    <td style={tdStyle}>{d.perDiem}</td>
+                    <td style={tdStyle}>{d.customer || "-"}</td>
+                    <td style={tdStyle}>{d.driver || "-"}</td>
+                    <td style={tdStyle}>{d.vehicle || "-"}</td>
+                    <td style={tdStyle}>{d.fuelCost ?? 0}</td>
+                    <td style={tdStyle}>{d.perDiem ?? 0}</td>
                     <td style={tdStyle}>{(d.personnel || []).join(", ")}</td>
-                    <td style={tdStyle}>{d.totalCost}</td>
-                    <td style={tdStyle}>{d.remarks}</td>
+                    <td style={tdStyle}>{d.totalCost ?? 0}</td>
+                    <td style={tdStyle}>{d.status || "Pending"}</td>
+                    <td style={tdStyle}>{d.remarks || "-"}</td>
                     <td style={tdStyle}>
-                      <Select value={d.status} onChange={(e) => handleStatusChange(d._id, e.target.value)} size="small">
-                        {statusOptions.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                      </Select>
+                      <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
                     </td>
-                    <td style={tdStyle}><Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button></td>
                   </motion.tr>
                 ))}
               </AnimatePresence>
@@ -275,4 +283,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   );
 }
 
-DispatchDeliveryFactory.defaultProps = { personnelList: [] };
+DispatchDeliveryFactory.defaultProps = {
+  personnelList: [],
+};
