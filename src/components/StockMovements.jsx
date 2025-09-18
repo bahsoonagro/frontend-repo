@@ -1,383 +1,243 @@
-// src/components/StockManagement.jsx
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Box,
-  Button,
-  Grid,
-  Paper,
-  TextField,
-  Typography,
-  IconButton,
-  Alert,
-  Tabs,
-  Tab,
-} from "@mui/material";
-import { Delete, Edit, Print, FileDownload } from "@mui/icons-material";
+// src/components/FinishedProductsFactory.jsx
+import React, { useEffect, useState } from "react";
 import axios from "axios";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
-const StockManagement = ({ apiUrl }) => {
-  const [tab, setTab] = useState(0);
-  const category = tab === 0 ? "Raw Material" : "Finished Product";
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
 
-  const [formData, setFormData] = useState({
-    requisitionNo: "",
-    dateTime: "",
-    rawMaterial: "",
+export default function FinishedProductsFactory() {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState({
+    productName: "",
     batchNumber: "",
-    quantityBags: "",
-    weightRemovedKg: "",
-    weightReceivedKg: "",
-    storeman: "",
-    cleaningReceiver: "",
-    customer: "",
-    dispatchClerk: "",
+    productionDate: "",
+    quantityKg: "",
+    unit: "",
     remarks: "",
   });
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const tableRef = useRef();
+
+  // fetch products
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setProducts(res.data);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
 
   useEffect(() => {
-    fetchMovements();
-  }, [apiUrl]);
+    fetchProducts();
+  }, []);
 
-  const fetchMovements = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get(`${apiUrl}/api/stock-movements`);
-      setMovements(res.data);
-    } catch (err) {
-      setError("Failed to load stock movements.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // handle form input
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError("");
-    setSuccessMsg("");
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const required = [
-      "requisitionNo",
-      "dateTime",
-      "rawMaterial",
-      "batchNumber",
-      "quantityBags",
-      "weightRemovedKg",
-      "weightReceivedKg",
-      "storeman",
-      "cleaningReceiver",
-    ];
-    for (let f of required) {
-      if (!formData[f]) return setError(`Please fill in ${f}`);
-    }
-
-    setLoading(true);
     try {
-      const payload = {
-        ...formData,
-        category,
-        quantityBags: Number(formData.quantityBags),
-        weightRemovedKg: Number(formData.weightRemovedKg),
-        weightReceivedKg: Number(formData.weightReceivedKg),
-      };
-
-      let res;
       if (editingId) {
-        res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
-        setMovements((prev) =>
-          prev.map((m) => (m._id === editingId ? res.data : m))
-        );
-        setSuccessMsg("Stock movement updated successfully!");
+        await axios.put(`${API_URL}/${editingId}`, form);
       } else {
-        res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
-        setMovements((prev) => [res.data.movement, ...prev]);
-        setSuccessMsg("Stock movement recorded successfully!");
+        await axios.post(API_URL, form);
       }
-
-      setFormData({
-        requisitionNo: "",
-        dateTime: "",
-        rawMaterial: "",
+      setForm({
+        productName: "",
         batchNumber: "",
-        quantityBags: "",
-        weightRemovedKg: "",
-        weightReceivedKg: "",
-        storeman: "",
-        cleaningReceiver: "",
-        customer: "",
-        dispatchClerk: "",
+        productionDate: "",
+        quantityKg: "",
+        unit: "",
         remarks: "",
       });
       setEditingId(null);
+      fetchProducts();
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || "Failed to save movement.");
-    } finally {
-      setLoading(false);
+      console.error("Save error:", err);
     }
   };
 
-  const handleEdit = (movement) => {
-    setFormData({
-      requisitionNo: movement.requisitionNo,
-      dateTime: movement.dateTime,
-      rawMaterial: movement.rawMaterial,
-      batchNumber: movement.batchNumber,
-      quantityBags: movement.quantityBags || "",
-      weightRemovedKg: movement.weightRemovedKg || "",
-      weightReceivedKg: movement.weightReceivedKg || "",
-      storeman: movement.storeman,
-      cleaningReceiver: movement.cleaningReceiver,
-      customer: movement.customer || "",
-      dispatchClerk: movement.dispatchClerk || "",
-      remarks: movement.remarks || "",
+  // edit product
+  const handleEdit = (product) => {
+    setForm({
+      productName: product.productName,
+      batchNumber: product.batchNumber,
+      productionDate: product.productionDate.split("T")[0],
+      quantityKg: product.quantityKg,
+      unit: product.unit,
+      remarks: product.remarks || "",
     });
-    setEditingId(movement._id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setEditingId(product._id);
   };
 
+  // delete product
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this movement?")) return;
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
     try {
-      await axios.delete(`${apiUrl}/api/stock-movements/${id}`);
-      setMovements((prev) => prev.filter((m) => m._id !== id));
-      setSuccessMsg("Stock movement deleted successfully!");
+      await axios.delete(`${API_URL}/${id}`);
+      fetchProducts();
     } catch (err) {
-      setError("Failed to delete movement.");
+      console.error("Delete error:", err);
     }
   };
 
+  // print/export clean table
   const handlePrint = () => {
-    const printContent = tableRef.current.outerHTML;
-    const win = window.open("", "_blank");
-    win.document.write(`<html><head><title>Stock Movements</title>
-      <style>
-        table { border-collapse: collapse; width: 100%; font-family: Arial; }
-        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
-        th { background-color: #1976d2; color: white; }
-      </style>
-    </head><body>${printContent}</body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
-  };
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      movements
-        .filter((m) => m.category === category)
-        .map((m) => ({
-          "Requisition No": m.requisitionNo,
-          "Date/Time": new Date(m.dateTime).toLocaleString(),
-          "Raw Material": m.rawMaterial,
-          "Batch": m.batchNumber,
-          "Qty (Bags)": m.quantityBags,
-          "Weight Removed (Kg)": m.weightRemovedKg,
-          "Weight Received (Kg)": m.weightReceivedKg,
-          "Storeman": m.storeman,
-          "Cleaning Receiver": m.cleaningReceiver,
-          "Customer": m.customer,
-          "Dispatch Clerk": m.dispatchClerk,
-          "Remarks": m.remarks,
-        }))
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "StockMovements");
-    XLSX.writeFile(wb, "StockMovements.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.autoTable({
-      head: [
-        [
-          "Req. No",
-          "Date/Time",
-          "Raw Material",
-          "Batch",
-          "Qty (Bags)",
-          "Weight Removed",
-          "Weight Received",
-          "Storeman",
-          "Cleaning Receiver",
-          "Customer",
-          "Dispatch Clerk",
-          "Remarks",
-        ],
-      ],
-      body: movements
-        .filter((m) => m.category === category)
-        .map((m) => [
-          m.requisitionNo,
-          new Date(m.dateTime).toLocaleString(),
-          m.rawMaterial,
-          m.batchNumber,
-          m.quantityBags,
-          m.weightRemovedKg,
-          m.weightReceivedKg,
-          m.storeman,
-          m.cleaningReceiver,
-          m.customer || "-",
-          m.dispatchClerk || "-",
-          m.remarks || "-",
-        ]),
-    });
-    doc.save("StockMovements.pdf");
+    const printWindow = window.open("", "_blank");
+    const tableHTML = document.getElementById("finishedProductsTable").outerHTML;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Finished Products Report</title>
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <h2>Finished Products Report</h2>
+          ${tableHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom color="primary">
-        📦 Stock Management
-      </Typography>
-
-      {/* Tabs */}
-      <Paper elevation={2} sx={{ mb: 3 }}>
-        <Tabs
-          value={tab}
-          onChange={(_, newValue) => setTab(newValue)}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="fullWidth"
+    <div className="p-6 space-y-6">
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-xl shadow"
+      >
+        <input
+          name="productName"
+          placeholder="Product Name"
+          value={form.productName}
+          onChange={handleChange}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          name="batchNumber"
+          placeholder="Batch Number"
+          value={form.batchNumber}
+          onChange={handleChange}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          type="date"
+          name="productionDate"
+          value={form.productionDate}
+          onChange={handleChange}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          type="number"
+          name="quantityKg"
+          placeholder="Quantity (Kg)"
+          value={form.quantityKg}
+          onChange={handleChange}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          name="unit"
+          placeholder="Unit (e.g. bags, cartons)"
+          value={form.unit}
+          onChange={handleChange}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          name="remarks"
+          placeholder="Remarks"
+          value={form.remarks}
+          onChange={handleChange}
+          className="border p-2 rounded col-span-2"
+        />
+        <button
+          type="submit"
+          className="bg-green-600 text-white px-4 py-2 rounded col-span-2"
         >
-          <Tab label="Raw Materials" />
-          <Tab label="Finished Products" />
-        </Tabs>
-      </Paper>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
-
-      {/* Input Form */}
-      <Paper elevation={3} sx={{ p: 2, mb: 4 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField label="Requisition No" name="requisitionNo" value={formData.requisitionNo} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Date/Time" name="dateTime" type="datetime-local" value={formData.dateTime} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Raw Material / Product" name="rawMaterial" value={formData.rawMaterial} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Batch Number" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Qty (Bags)" name="quantityBags" type="number" value={formData.quantityBags} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Weight Removed (Kg)" name="weightRemovedKg" type="number" value={formData.weightRemovedKg} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Weight Received (Kg)" name="weightReceivedKg" type="number" value={formData.weightReceivedKg} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Storeman" name="storeman" value={formData.storeman} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Cleaning Receiver" name="cleaningReceiver" value={formData.cleaningReceiver} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Customer" name="customer" value={formData.customer} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField label="Dispatch Clerk" name="dispatchClerk" value={formData.dispatchClerk} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Button variant="contained" color="primary" onClick={handleSubmit} fullWidth>
-              {editingId ? "✏️ Update Movement" : "➕ Record Movement"}
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Print & Export */}
-      <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
-        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>Export Excel</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>Export PDF</Button>
-      </Box>
+          {editingId ? "Update Product" : "Add Product"}
+        </button>
+      </form>
 
       {/* Table */}
-      <Paper ref={tableRef} elevation={3}>
-        <Box sx={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
-              <tr>
-                <th style={thStyle}>Req. No</th>
-                <th style={thStyle}>Date/Time</th>
-                <th style={thStyle}>Material / Product</th>
-                <th style={thStyle}>Batch</th>
-                <th style={thStyle}>Qty (Bags)</th>
-                <th style={thStyle}>Weight Removed (Kg)</th>
-                <th style={thStyle}>Weight Received (Kg)</th>
-                <th style={thStyle}>Storeman</th>
-                <th style={thStyle}>Cleaning Receiver</th>
-                <th style={thStyle}>Customer</th>
-                <th style={thStyle}>Dispatch Clerk</th>
-                <th style={thStyle}>Remarks</th>
-                <th style={thStyle}>Actions</th>
+      <div className="bg-white p-4 rounded-xl shadow">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold">Finished Products List</h2>
+          <button
+            onClick={handlePrint}
+            className="bg-blue-600 text-white px-3 py-1 rounded"
+          >
+            Print/Export
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table
+            id="finishedProductsTable"
+            className="min-w-full border border-gray-300"
+          >
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-4 py-2">Product Name</th>
+                <th className="border px-4 py-2">Batch No.</th>
+                <th className="border px-4 py-2">Production Date</th>
+                <th className="border px-4 py-2">Quantity (Kg)</th>
+                <th className="border px-4 py-2">Unit</th>
+                <th className="border px-4 py-2">Remarks</th>
+                <th className="border px-4 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {movements.filter(m => m.category === category).length === 0 ? (
-                <tr>
-                  <td colSpan={13} style={tdStyleCenter}>No stock movements</td>
+              {products.map((p) => (
+                <tr key={p._id} className="hover:bg-gray-50">
+                  <td className="border px-4 py-2">{p.productName}</td>
+                  <td className="border px-4 py-2">{p.batchNumber}</td>
+                  <td className="border px-4 py-2">
+                    {new Date(p.productionDate).toLocaleDateString()}
+                  </td>
+                  <td className="border px-4 py-2">{p.quantityKg}</td>
+                  <td className="border px-4 py-2">{p.unit}</td>
+                  <td className="border px-4 py-2">{p.remarks}</td>
+                  <td className="border px-4 py-2 space-x-2">
+                    <button
+                      onClick={() => handleEdit(p)}
+                      className="bg-yellow-500 text-white px-2 py-1 rounded"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p._id)}
+                      className="bg-red-600 text-white px-2 py-1 rounded"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
-              ) : (
-                movements
-                  .filter(m => m.category === category)
-                  .map((m, i) => (
-                    <tr key={m._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
-                      <td style={tdStyle}>{m.requisitionNo}</td>
-                      <td style={tdStyle}>{new Date(m.dateTime).toLocaleString()}</td>
-                      <td style={tdStyle}>{m.rawMaterial}</td>
-                      <td style={tdStyle}>{m.batchNumber}</td>
-                      <td style={tdStyle}>{m.quantityBags}</td>
-                      <td style={tdStyle}>{m.weightRemovedKg}</td>
-                      <td style={tdStyle}>{m.weightReceivedKg}</td>
-                      <td style={tdStyle}>{m.storeman}</td>
-                      <td style={tdStyle}>{m.cleaningReceiver}</td>
-                      <td style={tdStyle}>{m.customer || "-"}</td>
-                      <td style={tdStyle}>{m.dispatchClerk || "-"}</td>
-                      <td style={tdStyle}>{m.remarks || "-"}</td>
-                      <td style={tdStyle}>
-                        <IconButton color="primary" size="small" onClick={() => handleEdit(m)}>
-                          <Edit />
-                        </IconButton>
-                        <IconButton color="error" size="small" onClick={() => handleDelete(m._id)}>
-                          <Delete />
-                        </IconButton>
-                      </td>
-                    </tr>
-                  ))
+              ))}
+              {products.length === 0 && (
+                <tr>
+                  <td
+                    colSpan="7"
+                    className="text-center py-4 text-gray-500 italic"
+                  >
+                    No products available
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
-        </Box>
-      </Paper>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
-};
-
-// Styles
-const thStyle = { padding: "8px", border: "1px solid #333", textAlign: "left" };
-const tdStyle = { padding: "8px", border: "1px solid #ccc" };
-const tdStyleCenter = { padding: "8px", border: "1px solid #ccc", textAlign: "center", color: "#777" };
-
-export default StockManagement;
+}
