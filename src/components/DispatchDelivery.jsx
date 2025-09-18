@@ -18,6 +18,17 @@ import {
 } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Toll groups and items
+const tollGroups = [
+  { group: "Group 1: Kekeh (Tricycles)", price: 3 },
+  { group: "Group 2: Taxis and Sedans", price: 5 },
+  { group: "Group 3: SUVs, Pickup Jeeps, Mini Buses", price: 10 },
+  { group: "Group 4: Coaches, Light Vans, Small Trucks", price: 40 },
+  { group: "Group 5: Fuel Tankers (2 Axles)", price: 250 },
+  { group: "Group 6: Heavy-Duty Vehicles (10–12 Tyres)", price: 400 },
+  { group: "Group 7: Heavy Trucks, Trailers, Semi-Trailers, Flat Beds, Fuel Tankers (3–4 Axles)", price: 600 },
+];
+
 const itemsList = [
   "Bennimix 50g",
   "Bennimix 400g",
@@ -44,6 +55,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     customer: "",
     driver: "",
     vehicle: "",
+    tollGroup: "",
     fuelCost: 0,
     perDiem: 0,
     personnel: [],
@@ -58,19 +70,21 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   const [successMsg, setSuccessMsg] = useState("");
   const printRef = useRef();
 
+  // Fetch dispatches from backend
   useEffect(() => {
     const fetchDispatches = async () => {
       try {
         const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
         setDispatches(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        console.error("API Error:", err.response || err.message);
+        console.error("API Error:", err.response?.data || err.message);
         setError("Failed to load dispatches from backend.");
       }
     };
     fetchDispatches();
   }, []);
 
+  // Form handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -80,14 +94,18 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     setFormData((prev) => ({ ...prev, personnel: e.target.value }));
   };
 
+  // Auto-calculate total cost and tollFee
   useEffect(() => {
+    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
     const fuelCost = parseFloat(formData.fuelCost) || 0;
     const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
-    setFormData((prev) => ({ ...prev, totalCost: fuelCost + perDiem }));
-  }, [formData.fuelCost, formData.perDiem, formData.personnel]);
+    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
+  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); setSuccessMsg("");
+
     const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
     for (const f of requiredFields) {
       if (!formData[f]) {
@@ -95,15 +113,26 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         return;
       }
     }
+
     try {
       setLoading(true);
       const payload = {
-        ...formData,
+        item: formData.item,
         quantity: Number(formData.quantity),
+        date: new Date(formData.date).toISOString(),
+        customer: formData.customer,
+        driver: formData.driver,
+        vehicle: formData.vehicle,
+        tollGroup: formData.tollGroup,
+        tollFee: tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0,
         fuelCost: Number(formData.fuelCost),
         perDiem: Number(formData.perDiem),
+        personnel: formData.personnel,
         totalCost: Number(formData.totalCost),
+        status: formData.status,
+        remarks: formData.remarks,
       };
+
       const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
       setDispatches((prev) => [res.data, ...prev]);
       setSuccessMsg("Dispatch recorded successfully!");
@@ -114,6 +143,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         customer: "",
         driver: "",
         vehicle: "",
+        tollGroup: "",
         fuelCost: 0,
         perDiem: 0,
         personnel: [],
@@ -121,10 +151,9 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         status: "Pending",
         remarks: "",
       });
-      setError("");
     } catch (err) {
-      console.error("Submit Error:", err.response || err.message);
-      setError("Failed to save dispatch.");
+      console.error("Submit Error:", err.response?.data || err.message);
+      setError(err.response?.data?.message || "Failed to save dispatch.");
     } finally {
       setLoading(false);
     }
@@ -136,38 +165,18 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
       setDispatches(dispatches.filter((d) => d._id !== id));
     } catch (err) {
-      console.error("Delete Error:", err.response || err.message);
+      console.error("Delete Error:", err.response?.data || err.message);
       setError("Failed to delete dispatch.");
     }
   };
 
-  const handleStatusChange = async (id, newStatus) => {
-    try {
-      const dispatch = dispatches.find(d => d._id === id);
-      if (!dispatch) return;
-
-      const perDiem = (dispatch.perDiem || 0) * ((dispatch.personnel?.length) || 1);
-      const updatedTotal = (dispatch.fuelCost || 0) + perDiem;
-
-      const res = await axios.put(`${apiUrl}/api/dispatch-delivery/${id}`, {
-        status: newStatus,
-        totalCost: updatedTotal,
-      });
-
-      setDispatches(dispatches.map(d => d._id === id ? res.data : d));
-    } catch (err) {
-      console.error("Status Update Error:", err.response || err.message);
-      setError("Failed to update status.");
-    }
-  };
-
   const handlePrint = () => {
-    const table = printRef.current.querySelector("table");
+    const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
     WinPrint.document.write("<html><head><title>Dispatch Deliveries</title>");
-    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}th{background-color:#1976d2;color:#fff;} tr:hover{background-color:#e3f2fd;}</style>");
     WinPrint.document.write("</head><body>");
-    WinPrint.document.write(table.outerHTML);
+    WinPrint.document.write(printContent);
     WinPrint.document.write("</body></html>");
     WinPrint.document.close();
     WinPrint.focus();
@@ -181,6 +190,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
+            {/* Form Fields */}
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="item-label">Item</InputLabel>
@@ -189,12 +199,23 @@ export default function DispatchDeliveryFactory({ personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
 
             <Grid item xs={12} md={3}><TextField type="text" name="driver" label="Driver" value={formData.driver} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="vehicle" label="Vehicle" value={formData.vehicle} onChange={handleChange} fullWidth size="small" /></Grid>
+
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="toll-label">Toll Group</InputLabel>
+                <Select labelId="toll-label" name="tollGroup" value={formData.tollGroup} onChange={handleChange} input={<OutlinedInput label="Toll Group" />}>
+                  {tollGroups.map((g) => <MenuItem key={g.group} value={g.group}>{g.group} — {g.price} Le</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" name="fuelCost" label="Fuel Cost" value={formData.fuelCost} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="number" name="perDiem" label="Per Diem (per person)" value={formData.perDiem} onChange={handleChange} fullWidth size="small" /></Grid>
 
@@ -222,7 +243,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="status-label">Status</InputLabel>
-                <Select labelId="status-label" name="status" value={formData.status} onChange={handleChange} input={<OutlinedInput label="Status" />}>
+                <Select labelId="status-label" name="status" value={formData.status} onChange={handleChange}>
                   {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -241,6 +262,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         {successMsg && <Box sx={{ mt: 2, color: "green", fontWeight: "bold" }}>{successMsg}</Box>}
       </Paper>
 
+      {/* Table Section */}
       <Box ref={printRef} sx={{ mt: 3 }}>
         <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
           <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
@@ -250,7 +272,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                {["Item","Qty","Date","Customer","Driver","Vehicle","Fuel","Per Diem","Personnel","Total Cost","Status","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Status","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -263,15 +285,15 @@ export default function DispatchDeliveryFactory({ personnelList }) {
                     <td style={tdStyle}>{d.customer || "-"}</td>
                     <td style={tdStyle}>{d.driver || "-"}</td>
                     <td style={tdStyle}>{d.vehicle || "-"}</td>
+                    <td style={tdStyle}>{d.tollGroup || "-"}</td>
+                    <td style={tdStyle}>{d.tollFee ?? 0}</td>
                     <td style={tdStyle}>{d.fuelCost ?? 0}</td>
                     <td style={tdStyle}>{d.perDiem ?? 0}</td>
                     <td style={tdStyle}>{(d.personnel || []).join(", ")}</td>
                     <td style={tdStyle}>{d.totalCost ?? 0}</td>
-                    <td style={tdStyle}>{d.status || "Pending"}</td>
+                    <td style={tdStyle}>{d.status || "-"}</td>
                     <td style={tdStyle}>{d.remarks || "-"}</td>
-                    <td style={tdStyle}>
-                      <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
-                    </td>
+                    <td style={tdStyle}><Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button></td>
                   </motion.tr>
                 ))}
               </AnimatePresence>
