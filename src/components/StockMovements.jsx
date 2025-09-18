@@ -1,31 +1,31 @@
 // src/components/StockManagement.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
-  TextField,
-  MenuItem,
   Paper,
+  TextField,
   Typography,
+  IconButton,
+  Alert,
+  Tabs,
+  Tab,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import { Delete, Edit, Print, FileDownload } from "@mui/icons-material";
 import axios from "axios";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
-const API_URL = "/api/stock-movements"; // backend route
+const StockManagement = ({ apiUrl }) => {
+  const [tab, setTab] = useState(0);
+  const category = tab === 0 ? "Raw Material" : "Finished Product";
 
-export default function StockManagement() {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
     type: "IN",
     requisitionNo: "",
+    dateTime: "",
     rawMaterial: "",
     batchNumber: "",
     quantityBags: "",
@@ -33,47 +33,74 @@ export default function StockManagement() {
     weightReceivedKg: "",
     storeman: "",
     cleaningReceiver: "",
-    notes: "",
+    customer: "",
+    dispatchClerk: "",
+    remarks: "",
   });
-  const [editId, setEditId] = useState(null);
 
-  // Fetch data
-  const fetchData = async () => {
+  const [movements, setMovements] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const tableRef = useRef();
+
+  // Fetch movements on mount
+  useEffect(() => {
+    fetchMovements();
+  }, [apiUrl]);
+
+  const fetchMovements = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(API_URL);
-      setRows(res.data);
+      const res = await axios.get(`${apiUrl}/api/stock-movements`);
+      setMovements(res.data);
     } catch (err) {
-      console.error("Fetch error:", err);
+      setError("Failed to load stock movements.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Handle form input
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError("");
+    setSuccessMsg("");
   };
 
-  // Save (create/update)
-  const handleSave = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.rawMaterial || !formData.dateTime) {
+      return setError("Please fill in at least material and date/time");
+    }
+
+    setLoading(true);
     try {
-      if (editId) {
-        const res = await axios.put(`${API_URL}/${editId}`, form);
-        setRows((prev) =>
-          prev.map((row) => (row._id === editId ? res.data : row))
+      const payload = {
+        ...formData,
+        quantityBags: Number(formData.quantityBags) || 0,
+        weightRemovedKg: Number(formData.weightRemovedKg) || 0,
+        weightReceivedKg: Number(formData.weightReceivedKg) || 0,
+        category,
+      };
+
+      let res;
+      if (editingId) {
+        res = await axios.put(`${apiUrl}/api/stock-movements/${editingId}`, payload);
+        setMovements((prev) =>
+          prev.map((m) => (m._id === editingId ? res.data : m))
         );
+        setSuccessMsg("Stock movement updated!");
       } else {
-        const res = await axios.post(API_URL, form);
-        setRows((prev) => [...prev, res.data]);
+        res = await axios.post(`${apiUrl}/api/stock-movements`, payload);
+        setMovements((prev) => [res.data.movement, ...prev]);
+        setSuccessMsg("Stock movement recorded!");
       }
-      setOpen(false);
-      setForm({
+
+      setFormData({
         type: "IN",
         requisitionNo: "",
+        dateTime: "",
         rawMaterial: "",
         batchNumber: "",
         quantityBags: "",
@@ -81,209 +108,235 @@ export default function StockManagement() {
         weightReceivedKg: "",
         storeman: "",
         cleaningReceiver: "",
-        notes: "",
+        customer: "",
+        dispatchClerk: "",
+        remarks: "",
       });
-      setEditId(null);
+      setEditingId(null);
     } catch (err) {
-      console.error("Save error:", err);
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to save movement.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Delete row
+  const handleEdit = (m) => {
+    setFormData({
+      type: m.type || "IN",
+      requisitionNo: m.requisitionNo || "",
+      dateTime: m.dateTime ? new Date(m.dateTime).toISOString().slice(0,16) : "",
+      rawMaterial: m.rawMaterial || "",
+      batchNumber: m.batchNumber || "",
+      quantityBags: m.quantityBags || "",
+      weightRemovedKg: m.weightRemovedKg || "",
+      weightReceivedKg: m.weightReceivedKg || "",
+      storeman: m.storeman || "",
+      cleaningReceiver: m.cleaningReceiver || "",
+      customer: m.customer || "",
+      dispatchClerk: m.dispatchClerk || "",
+      remarks: m.notes || "",
+    });
+    setEditingId(m._id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleDelete = async (id) => {
+    if (!window.confirm("Delete this movement?")) return;
     try {
-      await axios.delete(`${API_URL}/${id}`);
-      setRows((prev) => prev.filter((row) => row._id !== id));
+      await axios.delete(`${apiUrl}/api/stock-movements/${id}`);
+      setMovements((prev) => prev.filter((m) => m._id !== id));
+      setSuccessMsg("Deleted successfully!");
     } catch (err) {
-      console.error("Delete error:", err);
+      setError("Failed to delete movement.");
     }
   };
 
-  // Open edit
-  const handleEdit = (row) => {
-    setForm(row);
-    setEditId(row._id);
-    setOpen(true);
+  const handlePrint = () => {
+    const win = window.open("", "_blank");
+    win.document.write(`<html><head><title>Stock Movements</title>
+      <style>
+        table { border-collapse: collapse; width: 100%; font-family: Arial; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background-color: #1976d2; color: white; }
+      </style>
+    </head><body>${tableRef.current.outerHTML}</body></html>`);
+    win.document.close();
+    win.print();
   };
 
-  // Table columns
-  const columns = [
-    { field: "type", headerName: "Type", width: 100 },
-    { field: "requisitionNo", headerName: "Requisition No", width: 150 },
-    { field: "rawMaterial", headerName: "Raw Material", width: 150 },
-    { field: "batchNumber", headerName: "Batch No", width: 120 },
-    { field: "quantityBags", headerName: "Bags", width: 100 },
-    { field: "weightRemovedKg", headerName: "Removed (Kg)", width: 130 },
-    { field: "weightReceivedKg", headerName: "Received (Kg)", width: 130 },
-    { field: "storeman", headerName: "Storeman", width: 120 },
-    { field: "cleaningReceiver", headerName: "Receiver", width: 120 },
-    { field: "notes", headerName: "Notes", width: 200 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 180,
-      renderCell: (params) => (
-        <>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => handleEdit(params.row)}
-            sx={{ mr: 1 }}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="error"
-            onClick={() => handleDelete(params.row._id)}
-          >
-            Delete
-          </Button>
-        </>
-      ),
-    },
-  ];
+  const exportExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(
+      movements
+        .filter(m => m.category === category)
+        .map(m => ({
+          Type: m.type,
+          "Requisition No": m.requisitionNo,
+          "Date/Time": new Date(m.dateTime).toLocaleString(),
+          "Material/Product": m.rawMaterial,
+          Batch: m.batchNumber,
+          "Qty (Bags)": m.quantityBags,
+          "Weight Removed": m.weightRemovedKg,
+          "Weight Received": m.weightReceivedKg,
+          Storeman: m.storeman,
+          "Cleaning Receiver": m.cleaningReceiver,
+          Customer: m.customer,
+          "Dispatch Clerk": m.dispatchClerk,
+          Remarks: m.notes,
+        }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "StockMovements");
+    XLSX.writeFile(wb, "StockMovements.xlsx");
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.autoTable({
+      head: [[
+        "Type","Req. No","Date/Time","Material","Batch","Qty","Weight Removed","Weight Received",
+        "Storeman","Cleaning Receiver","Customer","Dispatch Clerk","Remarks"
+      ]],
+      body: movements
+        .filter(m => m.category === category)
+        .map(m => [
+          m.type, m.requisitionNo, new Date(m.dateTime).toLocaleString(), m.rawMaterial, m.batchNumber,
+          m.quantityBags, m.weightRemovedKg, m.weightReceivedKg, m.storeman, m.cleaningReceiver,
+          m.customer || "-", m.dispatchClerk || "-", m.notes || "-"
+        ])
+    });
+    doc.save("StockMovements.pdf");
+  };
 
   return (
-    <Box p={2}>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6">Stock Movement Management</Typography>
-        <Button
-          variant="contained"
-          sx={{ mt: 2 }}
-          onClick={() => setOpen(true)}
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom color="primary">
+        📦 Stock Management
+      </Typography>
+
+      <Paper elevation={2} sx={{ mb: 3 }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          indicatorColor="primary"
+          textColor="primary"
+          variant="fullWidth"
         >
-          Add Stock Movement
-        </Button>
+          <Tab label="Raw Materials" />
+          <Tab label="Finished Products" />
+        </Tabs>
       </Paper>
 
-      <DataGrid
-        rows={rows}
-        columns={columns}
-        getRowId={(row) => row._id}
-        autoHeight
-        loading={loading}
-        disableSelectionOnClick
-        pageSize={5}
-        rowsPerPageOptions={[5, 10, 20]}
-      />
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
 
-      {/* Dialog Form */}
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>
-          {editId ? "Edit Stock Movement" : "Add Stock Movement"}
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} mt={1}>
-            <Grid item xs={6}>
-              <TextField
-                select
-                fullWidth
-                label="Type"
-                name="type"
-                value={form.type}
-                onChange={handleChange}
-              >
-                <MenuItem value="IN">IN</MenuItem>
-                <MenuItem value="OUT">OUT</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Requisition No"
-                fullWidth
-                name="requisitionNo"
-                value={form.requisitionNo}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Raw Material"
-                fullWidth
-                name="rawMaterial"
-                value={form.rawMaterial}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Batch Number"
-                fullWidth
-                name="batchNumber"
-                value={form.batchNumber}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                type="number"
-                label="Quantity (Bags)"
-                fullWidth
-                name="quantityBags"
-                value={form.quantityBags}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                type="number"
-                label="Weight Removed (Kg)"
-                fullWidth
-                name="weightRemovedKg"
-                value={form.weightRemovedKg}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                type="number"
-                label="Weight Received (Kg)"
-                fullWidth
-                name="weightReceivedKg"
-                value={form.weightReceivedKg}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Storeman"
-                fullWidth
-                name="storeman"
-                value={form.storeman}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                label="Receiver"
-                fullWidth
-                name="cleaningReceiver"
-                value={form.cleaningReceiver}
-                onChange={handleChange}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Notes"
-                fullWidth
-                multiline
-                rows={2}
-                name="notes"
-                value={form.notes}
-                onChange={handleChange}
-              />
-            </Grid>
+      <Paper elevation={3} sx={{ p: 2, mb: 4 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={2}>
+            <TextField label="Type" name="type" select value={formData.type} onChange={handleChange} fullWidth SelectProps={{ native: true }} size="small">
+              <option value="IN">IN</option>
+              <option value="OUT">OUT</option>
+            </TextField>
           </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
-            {editId ? "Update" : "Save"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <Grid item xs={12} md={2}>
+            <TextField label="Requisition No" name="requisitionNo" value={formData.requisitionNo} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Date/Time" name="dateTime" type="datetime-local" value={formData.dateTime} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Material / Product" name="rawMaterial" value={formData.rawMaterial} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="Batch" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="Qty (Bags)" name="quantityBags" type="number" value={formData.quantityBags} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="Weight Removed" name="weightRemovedKg" type="number" value={formData.weightRemovedKg} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField label="Weight Received" name="weightReceivedKg" type="number" value={formData.weightReceivedKg} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Storeman" name="storeman" value={formData.storeman} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Cleaning Receiver" name="cleaningReceiver" value={formData.cleaningReceiver} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Customer" name="customer" value={formData.customer} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField label="Dispatch Clerk" name="dispatchClerk" value={formData.dispatchClerk} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small"/>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Button variant="contained" color="primary" onClick={handleSubmit} fullWidth>
+              {editingId ? "✏️ Update" : "➕ Record"}
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>Excel</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>PDF</Button>
+      </Box>
+
+      <Paper ref={tableRef} elevation={3}>
+        <Box sx={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#1976d2", color: "white" }}>
+              <tr>
+                {["Type","Req. No","Date/Time","Material","Batch","Qty","Weight Removed","Weight Received",
+                "Storeman","Cleaning Receiver","Customer","Dispatch Clerk","Remarks","Actions"].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {movements.filter(m => m.category === category).length === 0 ? (
+                <tr><td colSpan={14} style={tdCenter}>No stock movements</td></tr>
+              ) : (
+                movements
+                  .filter(m => m.category === category)
+                  .map((m,i) => (
+                    <tr key={m._id} style={{ backgroundColor: i % 2 === 0 ? "#f5f5f5" : "#fff" }}>
+                      <td style={tdStyle}>{m.type}</td>
+                      <td style={tdStyle}>{m.requisitionNo}</td>
+                      <td style={tdStyle}>{new Date(m.dateTime).toLocaleString()}</td>
+                      <td style={tdStyle}>{m.rawMaterial}</td>
+                      <td style={tdStyle}>{m.batchNumber}</td>
+                      <td style={tdStyle}>{m.quantityBags}</td>
+                      <td style={tdStyle}>{m.weightRemovedKg}</td>
+                      <td style={tdStyle}>{m.weightReceivedKg}</td>
+                      <td style={tdStyle}>{m.storeman}</td>
+                      <td style={tdStyle}>{m.cleaningReceiver}</td>
+                      <td style={tdStyle}>{m.customer || "-"}</td>
+                      <td style={tdStyle}>{m.dispatchClerk || "-"}</td>
+                      <td style={tdStyle}>{m.notes || "-"}</td>
+                      <td style={tdStyle}>
+                        <IconButton size="small" color="primary" onClick={() => handleEdit(m)}><Edit /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDelete(m._id)}><Delete /></IconButton>
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </Box>
+      </Paper>
     </Box>
   );
-}
+};
+
+const thStyle = { padding: "8px", border: "1px solid #333", textAlign: "left" };
+const tdStyle = { padding: "8px", border: "1px solid #ccc" };
+const tdCenter = { padding: "8px", border: "1px solid #ccc", textAlign: "center", color: "#777" };
+
+export default StockManagement;
