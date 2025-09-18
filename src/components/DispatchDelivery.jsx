@@ -64,6 +64,8 @@ export default function DispatchDeliveryFactory({ personnelList }) {
   });
 
   const [dispatches, setDispatches] = useState([]);
+  const [filteredDispatches, setFilteredDispatches] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -75,7 +77,9 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     const fetchDispatches = async () => {
       try {
         const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
-        setDispatches(Array.isArray(res.data) ? res.data : []);
+        const data = Array.isArray(res.data) ? res.data : [];
+        setDispatches(data);
+        setFilteredDispatches(data);
       } catch (err) {
         console.error("API Error:", err.response || err.message);
         setError("Failed to load dispatches from backend.");
@@ -83,6 +87,15 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     };
     fetchDispatches();
   }, [apiUrl]);
+
+  // Filter dispatches by status
+  useEffect(() => {
+    if (statusFilter === "All") {
+      setFilteredDispatches(dispatches);
+    } else {
+      setFilteredDispatches(dispatches.filter(d => d.status === statusFilter));
+    }
+  }, [statusFilter, dispatches]);
 
   // Live total cost calculation
   useEffect(() => {
@@ -209,6 +222,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
+            {/* Form fields */}
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="item-label">Item</InputLabel>
@@ -217,7 +231,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
-
             <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
@@ -280,12 +293,20 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         {successMsg && <Box sx={{ mt: 2, color: "green", fontWeight: "bold" }}>{successMsg}</Box>}
       </Paper>
 
-      {/* Table Section */}
-      <Box ref={printRef} sx={{ mt: 3 }}>
-        <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
-          <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
-        </Box>
+      {/* Status Filter */}
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
+        <FormControl size="small">
+          <InputLabel>Status Filter</InputLabel>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} input={<OutlinedInput label="Status Filter" />}>
+            <MenuItem value="All">All</MenuItem>
+            {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
+      </Box>
 
+      {/* Table Section */}
+      <Box ref={printRef}>
         <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
@@ -295,7 +316,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
             </thead>
             <tbody>
               <AnimatePresence>
-                {dispatches.map((d, i) => (
+                {filteredDispatches.map((d, i) => (
                   <motion.tr key={d._id || i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
                     <td style={tdStyle}>{d.item || "-"}</td>
                     <td style={tdStyle}>{d.quantity || 0}</td>
