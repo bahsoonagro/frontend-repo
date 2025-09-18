@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Toll groups and items
 const tollGroups = [
   { group: "Group 1: Kekeh (Tricycles)", price: 3 },
   { group: "Group 2: Taxis and Sedans", price: 5 },
@@ -39,7 +40,7 @@ const itemsList = [
   "Pikinmix 5kg",
 ];
 
-const statuses = ["Pending", "In Transit", "Delivered", "Cancelled"];
+const statusOptions = ["Pending", "In Progress", "Completed"];
 
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
@@ -59,27 +60,23 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     perDiem: 0,
     personnel: [],
     totalCost: 0,
-    status: "Pending",
     remarks: "",
+    status: "Pending",
   });
 
   const [dispatches, setDispatches] = useState([]);
-  const [filteredDispatches, setFilteredDispatches] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [editId, setEditId] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("");
   const printRef = useRef();
 
-  // Fetch dispatches
+  // Fetch dispatches from backend
   useEffect(() => {
     const fetchDispatches = async () => {
       try {
         const res = await axios.get(`${apiUrl}/api/dispatch-delivery`);
-        const data = Array.isArray(res.data) ? res.data : [];
-        setDispatches(data);
-        setFilteredDispatches(data);
+        setDispatches(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error("API Error:", err.response || err.message);
         setError("Failed to load dispatches from backend.");
@@ -88,50 +85,32 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     fetchDispatches();
   }, [apiUrl]);
 
-  // Filter dispatches by status
-  useEffect(() => {
-    if (statusFilter === "All") {
-      setFilteredDispatches(dispatches);
-    } else {
-      setFilteredDispatches(dispatches.filter(d => d.status === statusFilter));
-    }
-  }, [statusFilter, dispatches]);
-
-  // Live total cost calculation
-  useEffect(() => {
-    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
-    const fuel = parseFloat(formData.fuelCost) || 0;
-    const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
-    const total = tollFee + fuel + perDiem;
-    setFormData(prev => ({ ...prev, totalCost: total }));
-  }, [formData.fuelCost, formData.perDiem, formData.tollGroup, formData.personnel]);
-
+  // Form handlers
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePersonnelChange = (e) => {
-    setFormData(prev => ({ ...prev, personnel: e.target.value }));
+    setFormData((prev) => ({ ...prev, personnel: e.target.value }));
   };
 
-  const validateForm = () => {
-    const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
-    for (const f of requiredFields) {
-      if (!formData[f]) return `Please fill in ${f}`;
-    }
-    if (formData.quantity <= 0) return "Quantity must be greater than 0";
-    if (formData.fuelCost < 0) return "Fuel cost cannot be negative";
-    if (formData.perDiem < 0) return "Per diem cannot be negative";
-    return null;
-  };
+  // Auto-calculate total cost
+  useEffect(() => {
+    const tollFee = tollGroups.find((g) => g.group === formData.tollGroup)?.price || 0;
+    const fuelCost = parseFloat(formData.fuelCost) || 0;
+    const perDiem = (parseFloat(formData.perDiem) || 0) * (formData.personnel.length || 1);
+    setFormData((prev) => ({ ...prev, totalCost: tollFee + fuelCost + perDiem }));
+  }, [formData.tollGroup, formData.fuelCost, formData.perDiem, formData.personnel]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
+    const requiredFields = ["item", "quantity", "date", "customer", "driver", "vehicle"];
+    for (const f of requiredFields) {
+      if (!formData[f]) {
+        setError(`Please fill in ${f}`);
+        return;
+      }
     }
 
     try {
@@ -143,19 +122,9 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         perDiem: Number(formData.perDiem),
         totalCost: Number(formData.totalCost),
       };
-
-      let res;
-      if (editId) {
-        res = await axios.put(`${apiUrl}/api/dispatch-delivery/${editId}`, payload);
-        setDispatches(dispatches.map(d => d._id === editId ? res.data : d));
-        setSuccessMsg("Dispatch updated successfully!");
-        setEditId(null);
-      } else {
-        res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
-        setDispatches([res.data, ...dispatches]);
-        setSuccessMsg("Dispatch recorded successfully!");
-      }
-
+      const res = await axios.post(`${apiUrl}/api/dispatch-delivery`, payload);
+      setDispatches((prev) => [res.data, ...prev]);
+      setSuccessMsg("Dispatch recorded successfully!");
       setFormData({
         item: "",
         quantity: "",
@@ -168,8 +137,8 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         perDiem: 0,
         personnel: [],
         totalCost: 0,
-        status: "Pending",
         remarks: "",
+        status: "Pending",
       });
       setError("");
     } catch (err) {
@@ -184,26 +153,27 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     if (!window.confirm("Are you sure you want to delete this dispatch?")) return;
     try {
       await axios.delete(`${apiUrl}/api/dispatch-delivery/${id}`);
-      setDispatches(dispatches.filter(d => d._id !== id));
+      setDispatches(dispatches.filter((d) => d._id !== id));
     } catch (err) {
       console.error("Delete Error:", err.response || err.message);
       setError("Failed to delete dispatch.");
     }
   };
 
-  const handleEdit = (dispatch) => {
-    setFormData({
-      ...dispatch,
-      fuelCost: dispatch.fuelCost ?? 0,
-      perDiem: dispatch.perDiem ?? 0,
-      totalCost: dispatch.totalCost ?? 0,
-      personnel: dispatch.personnel || [],
-    });
-    setEditId(dispatch._id);
-  };
-
   const handlePrint = () => {
-    const table = printRef.current.querySelector("table");
+    const table = printRef.current.querySelector("table").cloneNode(true);
+
+    // Remove the Actions column for printing
+    const headers = table.querySelectorAll("th");
+    const actionIndex = Array.from(headers).findIndex(h => h.innerText === "Actions");
+    if (actionIndex > -1) {
+      headers[actionIndex].remove();
+      table.querySelectorAll("tr").forEach(tr => {
+        const cells = tr.querySelectorAll("td");
+        if (cells[actionIndex]) cells[actionIndex].remove();
+      });
+    }
+
     const WinPrint = window.open("", "", "width=900,height=650");
     WinPrint.document.write("<html><head><title>Dispatch Deliveries</title>");
     WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:6px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
@@ -215,6 +185,8 @@ export default function DispatchDeliveryFactory({ personnelList }) {
     WinPrint.print();
   };
 
+  const filteredDispatches = filterStatus ? dispatches.filter(d => d.status === filterStatus) : dispatches;
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>🚚 Dispatch & Delivery</Typography>
@@ -222,7 +194,6 @@ export default function DispatchDeliveryFactory({ personnelList }) {
       <Paper elevation={6} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            {/* Form fields */}
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="item-label">Item</InputLabel>
@@ -231,6 +202,7 @@ export default function DispatchDeliveryFactory({ personnelList }) {
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={3}><TextField type="number" name="quantity" label="Quantity" value={formData.quantity} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="date" name="date" label="Date" value={formData.date} onChange={handleChange} fullWidth size="small" InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" name="customer" label="Customer" value={formData.customer} onChange={handleChange} fullWidth size="small" /></Grid>
@@ -271,20 +243,21 @@ export default function DispatchDeliveryFactory({ personnelList }) {
               </FormControl>
             </Grid>
 
+            <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
+
             <Grid item xs={12} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel id="status-label">Status</InputLabel>
                 <Select labelId="status-label" name="status" value={formData.status} onChange={handleChange} input={<OutlinedInput label="Status" />}>
-                  {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  {statusOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={3}><TextField type="number" label="Total Cost" value={formData.totalCost} InputProps={{ readOnly: true }} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField type="text" label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth size="small" /></Grid>
 
             <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
-              <Button variant="contained" color="success" type="submit" size="small">{loading ? "Saving..." : (editId ? "✏️ Update Dispatch" : "➕ Record Dispatch")}</Button>
+              <Button variant="contained" color="success" type="submit" size="small">{loading ? "Saving..." : "➕ Record Dispatch"}</Button>
             </Grid>
           </Grid>
         </form>
@@ -293,25 +266,32 @@ export default function DispatchDeliveryFactory({ personnelList }) {
         {successMsg && <Box sx={{ mt: 2, color: "green", fontWeight: "bold" }}>{successMsg}</Box>}
       </Paper>
 
-      {/* Status Filter */}
+      {/* Filter & Table */}
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
         <FormControl size="small">
-          <InputLabel>Status Filter</InputLabel>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} input={<OutlinedInput label="Status Filter" />}>
-            <MenuItem value="All">All</MenuItem>
-            {statuses.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+          <InputLabel id="filter-status-label">Filter Status</InputLabel>
+          <Select
+            labelId="filter-status-label"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            input={<OutlinedInput label="Filter Status" />}
+          >
+            <MenuItem value="">All</MenuItem>
+            {statusOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
           </Select>
         </FormControl>
-        <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
       </Box>
 
-      {/* Table Section */}
-      <Box ref={printRef}>
+      <Box ref={printRef} sx={{ mt: 3 }}>
+        <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
+          <Button variant="outlined" onClick={handlePrint}>🖨️ Print Table</Button>
+        </Box>
+
         <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Status","Remarks","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
+                {["Item","Qty","Date","Customer","Driver","Vehicle","Toll Group","Toll Fee","Fuel","Per Diem","Personnel","Total Cost","Remarks","Status","Actions"].map((h) => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -325,16 +305,15 @@ export default function DispatchDeliveryFactory({ personnelList }) {
                     <td style={tdStyle}>{d.driver || "-"}</td>
                     <td style={tdStyle}>{d.vehicle || "-"}</td>
                     <td style={tdStyle}>{d.tollGroup || "-"}</td>
-                    <td style={tdStyle}>{tollGroups.find(g => g.group === d.tollGroup)?.price || 0}</td>
+                    <td style={tdStyle}>{tollGroups.find((g) => g.group === d.tollGroup)?.price || 0}</td>
                     <td style={tdStyle}>{d.fuelCost ?? 0}</td>
                     <td style={tdStyle}>{d.perDiem ?? 0}</td>
                     <td style={tdStyle}>{(d.personnel || []).join(", ")}</td>
                     <td style={tdStyle}>{d.totalCost ?? 0}</td>
-                    <td style={tdStyle}>{d.status || "-"}</td>
                     <td style={tdStyle}>{d.remarks || "-"}</td>
+                    <td style={tdStyle}>{d.status || "-"}</td>
                     <td style={tdStyle}>
-                      <Button onClick={() => handleEdit(d)} variant="outlined" color="primary" size="small">✏️</Button>
-                      <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small" sx={{ ml: 0.5 }}>❌</Button>
+                      <Button onClick={() => handleDelete(d._id)} variant="outlined" color="error" size="small">❌</Button>
                     </td>
                   </motion.tr>
                 ))}
