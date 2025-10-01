@@ -2,11 +2,11 @@
 import React, { useState } from "react";
 
 // Import your page components
-import Dashboard from "./pages/Dashboard";
-import RawMaterials from "./pages/RawMaterials";
-import FinishedProducts from "./pages/FinishedProducts";
-import StockMovements from "./pages/StockMovements"; // Only stock movement now
-import DispatchDelivery from "./pages/DispatchDelivery";
+import Dashboard from "./components/Dashboard";
+import RawMaterials from "./components/RawMaterials";
+import FinishedProducts from "./components/FinishedProducts";
+import StockMovements from "./components/StockMovements"; // Only stock movement now
+import DispatchDelivery from "./components/DispatchDelivery";
 import Reports from "./pages/Reports";
 
 // Main App component
