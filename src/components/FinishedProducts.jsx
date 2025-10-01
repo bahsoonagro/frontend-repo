@@ -13,18 +13,9 @@ import "jspdf-autotable";
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
 
 const FINISHED_PRODUCTS_TABS = [
-  {
-    label: "Bennimix",
-    products: ["Bennimix 400g", "Bennimix 50g"]
-  },
-  {
-    label: "Pikinmix",
-    products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 1.5kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"]
-  },
-  {
-    label: "Supermix",
-    products: ["Supermix 50g"]
-  }
+  { label: "Bennimix", products: ["Bennimix 400g", "Bennimix 50g"] },
+  { label: "Pikinmix", products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"] },
+  { label: "Supermix", products: ["Supermix 50g"] }
 ];
 
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
@@ -36,8 +27,11 @@ export default function FinishedProducts() {
     productName: "",
     batchNumber: "",
     productionDate: "",
-    quantityctn: "",
-    unit: "",
+    openingQty: "",
+    newStock: "",
+    totalStock: "",
+    qtyOut: "",
+    balance: "",
     remarks: "",
   });
   const [products, setProducts] = useState([]);
@@ -60,40 +54,27 @@ export default function FinishedProducts() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
-    if (!formData.productName || !formData.batchNumber || !formData.productionDate || !formData.quantityKg || !formData.unit) {
-      alert("All required fields must be filled!");
-      return;
+    const requiredFields = ["productName", "batchNumber", "productionDate", "openingQty", "newStock", "totalStock", "qtyOut", "balance"];
+    for (let field of requiredFields) {
+      if (!formData[field]) return alert("All required fields must be filled!");
     }
-
-    const cleanedData = {
-      ...formData,
-      quantityKg: Number(formData.quantityKg) || 0,
-      productionDate: new Date(formData.productionDate),
-    };
 
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanedData),
+        body: JSON.stringify({ ...formData, productionDate: new Date(formData.productionDate) }),
       });
-
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-
       setProducts([...products, data]);
-
       setFormData({
-        productName: "",
-        batchNumber: "",
-        productionDate: "",
-        quantityKg: "",
-        unit: "",
-        remarks: "",
+        productName: "", batchNumber: "", productionDate: "",
+        openingQty: "", newStock: "", totalStock: "", qtyOut: "", balance: "", remarks: ""
       });
     } catch (err) {
       console.error("Save error:", err.message);
@@ -103,7 +84,7 @@ export default function FinishedProducts() {
   const handleDelete = async (id) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setProducts(products.filter((p) => p._id !== id));
+      setProducts(products.filter(p => p._id !== id));
     } catch (err) {
       console.error("Delete error:", err.message);
     }
@@ -111,17 +92,17 @@ export default function FinishedProducts() {
 
   const exportExcel = () => {
     const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
-    const ws = XLSX.utils.json_to_sheet(
-      filtered.map((p, i) => ({
-        "S/N": i + 1,
-        "Product": p.productName,
-        "Batch Number": p.batchNumber,
-        "Production Date": new Date(p.productionDate).toLocaleDateString(),
-        "Quantity (Kg)": p.quantityKg,
-        "Unit": p.unit,
-        "Remarks": p.remarks,
-      }))
-    );
+    const ws = XLSX.utils.json_to_sheet(filtered.map(p => ({
+      "Date": new Date(p.productionDate).toLocaleDateString(),
+      "Batch Number": p.batchNumber,
+      "Product Name": p.productName,
+      "Opening Qty": p.openingQty,
+      "New Stock": p.newStock,
+      "Total Stock": p.totalStock,
+      "Qty Out": p.qtyOut,
+      "Balance": p.balance,
+      "Remarks": p.remarks
+    })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Finished Products");
     XLSX.writeFile(wb, "FinishedProducts.xlsx");
@@ -133,14 +114,16 @@ export default function FinishedProducts() {
     doc.text(`${FINISHED_PRODUCTS_TABS[currentTab].label} - Finished Products`, 14, 15);
     doc.autoTable({
       startY: 20,
-      head: [["S/N","Product","Batch Number","Production Date","Quantity (Kg)","Unit","Remarks"]],
-      body: filtered.map((p, i) => [
-        i + 1,
-        p.productName,
-        p.batchNumber,
+      head: [["Date","Batch Number","Product Name","Opening Qty","New Stock","Total Stock","Qty Out","Balance","Remarks"]],
+      body: filtered.map(p => [
         new Date(p.productionDate).toLocaleDateString(),
-        p.quantityKg,
-        p.unit,
+        p.batchNumber,
+        p.productName,
+        p.openingQty,
+        p.newStock,
+        p.totalStock,
+        p.qtyOut,
+        p.balance,
         p.remarks
       ]),
       theme: "grid",
@@ -170,7 +153,6 @@ export default function FinishedProducts() {
         Finished Products
       </Typography>
 
-      {/* Tabs */}
       <Tabs value={currentTab} onChange={(e, val) => setCurrentTab(val)} sx={{ mb: 3 }}>
         {FINISHED_PRODUCTS_TABS.map((tab, i) => <Tab key={i} label={tab.label} />)}
       </Tabs>
@@ -181,33 +163,37 @@ export default function FinishedProducts() {
           <Grid item xs={6} sm={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Product</InputLabel>
-              <Select
-                name="productName"
-                value={formData.productName}
-                onChange={handleChange}
-                label="Product"
-              >
-                {FINISHED_PRODUCTS_TABS[currentTab].products.map((p, i) => (
-                  <MenuItem key={i} value={p}>{p}</MenuItem>
-                ))}
+              <Select name="productName" value={formData.productName} onChange={handleChange} label="Product">
+                {FINISHED_PRODUCTS_TABS[currentTab].products.map((p, i) => <MenuItem key={i} value={p}>{p}</MenuItem>)}
               </Select>
             </FormControl>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <TextField name="batchNumber" label="Batch Number" size="small"
-              value={formData.batchNumber} onChange={handleChange} fullWidth />
+            <TextField name="batchNumber" label="Batch Number" size="small" value={formData.batchNumber} onChange={handleChange} fullWidth />
           </Grid>
           <Grid item xs={6} sm={3}>
             <TextField name="productionDate" label="Production Date" type="date" size="small"
               value={formData.productionDate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={6} sm={2}>
-            <TextField name="quantityKg" label="Quantity (Kg)" type="number" size="small"
-              value={formData.quantityKg} onChange={handleChange} fullWidth />
+            <TextField name="openingQty" label="Opening Qty" type="number" size="small"
+              value={formData.openingQty} onChange={handleChange} fullWidth />
           </Grid>
           <Grid item xs={6} sm={2}>
-            <TextField name="unit" label="Unit" size="small"
-              value={formData.unit} onChange={handleChange} fullWidth />
+            <TextField name="newStock" label="New Stock" type="number" size="small"
+              value={formData.newStock} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField name="totalStock" label="Total Stock" type="number" size="small"
+              value={formData.totalStock} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField name="qtyOut" label="Qty Out" type="number" size="small"
+              value={formData.qtyOut} onChange={handleChange} fullWidth />
+          </Grid>
+          <Grid item xs={6} sm={2}>
+            <TextField name="balance" label="Balance" type="number" size="small"
+              value={formData.balance} onChange={handleChange} fullWidth />
           </Grid>
           <Grid item xs={12} sm={4}>
             <TextField name="remarks" label="Remarks" size="small"
@@ -223,15 +209,9 @@ export default function FinishedProducts() {
 
       {/* Print + Export */}
       <Box mb={2} display="flex" gap={2}>
-        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>
-          Print Table
-        </Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>
-          Export Excel
-        </Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>
-          Export PDF
-        </Button>
+        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print Table</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>Export Excel</Button>
+        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>Export PDF</Button>
       </Box>
 
       {/* Table */}
@@ -240,26 +220,30 @@ export default function FinishedProducts() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <th style={thStyle}>S/N</th>
-                <th style={thStyle}>Product</th>
-                <th style={thStyle}>Batch No.</th>
-                <th style={thStyle}>Production Date</th>
-                <th style={thStyle}>Quantity (Kg)</th>
-                <th style={thStyle}>Unit</th>
+                <th style={thStyle}>Batch Number</th>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Product Name</th>
+                <th style={thStyle}>Opening Qty</th>
+                <th style={thStyle}>New Stock</th>
+                <th style={thStyle}>Total Stock</th>
+                <th style={thStyle}>Qty Out</th>
+                <th style={thStyle}>Balance</th>
                 <th style={thStyle}>Remarks</th>
                 <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
-                {filteredProducts.map((prod, i) => (
-                  <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>{prod.productName}</td>
+                {filteredProducts.map((prod) => (
+                  <motion.tr key={prod.batchNumber} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <td style={tdStyle}>{prod.batchNumber}</td>
                     <td style={tdStyle}>{new Date(prod.productionDate).toLocaleDateString()}</td>
-                    <td style={tdStyle}>{prod.quantityKg}</td>
-                    <td style={tdStyle}>{prod.unit}</td>
+                    <td style={tdStyle}>{prod.productName}</td>
+                    <td style={tdStyle}>{prod.openingQty}</td>
+                    <td style={tdStyle}>{prod.newStock}</td>
+                    <td style={tdStyle}>{prod.totalStock}</td>
+                    <td style={tdStyle}>{prod.qtyOut}</td>
+                    <td style={tdStyle}>{prod.balance}</td>
                     <td style={tdStyle}>{prod.remarks}</td>
                     <td style={tdStyle}>
                       <Tooltip title="Delete">
@@ -272,9 +256,7 @@ export default function FinishedProducts() {
                 ))}
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: "center", padding: "10px" }}>
-                      No finished products found.
-                    </td>
+                    <td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>No finished products found.</td>
                   </tr>
                 )}
               </AnimatePresence>
