@@ -1,20 +1,8 @@
 // src/components/FinishedProducts.jsx
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Box,
-  Button,
-  Grid,
-  TextField,
-  Paper,
-  Typography,
-  IconButton,
-  Tabs,
-  Tab,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Tooltip,
+  Box, Button, Grid, TextField, Select, MenuItem,
+  InputLabel, FormControl, Paper, Typography, IconButton, Tabs, Tab, Tooltip
 } from "@mui/material";
 import { Delete, Print, FileDownload } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,10 +10,21 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
+
 const FINISHED_PRODUCTS_TABS = [
-  { label: "Bennimix", products: ["Bennimix 400g", "Bennimix 50g", "Supermix 50g"] },
-  { label: "Pikinmix", products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 1.5kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"] },
-  { label: "Others", products: [] }, // You can add more groups if needed
+  {
+    label: "Bennimix",
+    products: ["Bennimix 400g", "Bennimix 50g"]
+  },
+  {
+    label: "Pikinmix",
+    products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 1.5kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"]
+  },
+  {
+    label: "Supermix",
+    products: ["Supermix 50g"]
+  }
 ];
 
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
@@ -44,12 +43,19 @@ export default function FinishedProducts() {
   const [products, setProducts] = useState([]);
   const printRef = useRef();
 
-  // Fetch data from backend
+  // Fetch all finished products from backend
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setProducts(data);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
+
   useEffect(() => {
-    fetch("https://backend-repo-ydwt.onrender.com/api/finished-products")
-      .then((res) => res.json())
-      .then((data) => setProducts(data))
-      .catch((err) => console.error("Fetch error:", err));
+    fetchProducts();
   }, []);
 
   const handleChange = (e) => {
@@ -70,7 +76,7 @@ export default function FinishedProducts() {
     };
 
     try {
-      const res = await fetch("https://backend-repo-ydwt.onrender.com/api/finished-products", {
+      const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cleanedData),
@@ -80,6 +86,7 @@ export default function FinishedProducts() {
       const data = await res.json();
 
       setProducts([...products, data]);
+
       setFormData({
         productName: "",
         batchNumber: "",
@@ -95,9 +102,7 @@ export default function FinishedProducts() {
 
   const handleDelete = async (id) => {
     try {
-      await fetch(`https://backend-repo-ydwt.onrender.com/api/finished-products/${id}`, {
-        method: "DELETE",
-      });
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
       setProducts(products.filter((p) => p._id !== id));
     } catch (err) {
       console.error("Delete error:", err.message);
@@ -105,18 +110,16 @@ export default function FinishedProducts() {
   };
 
   const exportExcel = () => {
-    const filtered = products.filter((p) =>
-      FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName)
-    );
+    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
     const ws = XLSX.utils.json_to_sheet(
       filtered.map((p, i) => ({
         "S/N": i + 1,
-        Product: p.productName,
+        "Product": p.productName,
         "Batch Number": p.batchNumber,
         "Production Date": new Date(p.productionDate).toLocaleDateString(),
         "Quantity (Kg)": p.quantityKg,
-        Unit: p.unit,
-        Remarks: p.remarks,
+        "Unit": p.unit,
+        "Remarks": p.remarks,
       }))
     );
     const wb = XLSX.utils.book_new();
@@ -125,11 +128,9 @@ export default function FinishedProducts() {
   };
 
   const exportPDF = () => {
-    const filtered = products.filter((p) =>
-      FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName)
-    );
+    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
     const doc = new jsPDF();
-    doc.text("Bennimix Food Company - Finished Products", 14, 15);
+    doc.text(`${FINISHED_PRODUCTS_TABS[currentTab].label} - Finished Products`, 14, 15);
     doc.autoTable({
       startY: 20,
       head: [["S/N","Product","Batch Number","Production Date","Quantity (Kg)","Unit","Remarks"]],
@@ -161,6 +162,8 @@ export default function FinishedProducts() {
     WinPrint.print();
   };
 
+  const filteredProducts = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom sx={{ mb: 3, color: "#1976d2" }}>
@@ -168,8 +171,8 @@ export default function FinishedProducts() {
       </Typography>
 
       {/* Tabs */}
-      <Tabs value={currentTab} onChange={(e, val) => { setCurrentTab(val); setFormData({...formData, productName: ""}) }} sx={{ mb: 3 }}>
-        {FINISHED_PRODUCTS_TABS.map((tab, i) => <Tab label={tab.label} key={i} />)}
+      <Tabs value={currentTab} onChange={(e, val) => setCurrentTab(val)} sx={{ mb: 3 }}>
+        {FINISHED_PRODUCTS_TABS.map((tab, i) => <Tab key={i} label={tab.label} />)}
       </Tabs>
 
       {/* Input Form */}
@@ -239,7 +242,7 @@ export default function FinishedProducts() {
               <tr>
                 <th style={thStyle}>S/N</th>
                 <th style={thStyle}>Product</th>
-                <th style={thStyle}>Batch Number</th>
+                <th style={thStyle}>Batch No.</th>
                 <th style={thStyle}>Production Date</th>
                 <th style={thStyle}>Quantity (Kg)</th>
                 <th style={thStyle}>Unit</th>
@@ -249,26 +252,31 @@ export default function FinishedProducts() {
             </thead>
             <tbody>
               <AnimatePresence>
-                {products
-                  .filter((p) => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName))
-                  .map((p, i) => (
-                    <motion.tr key={p._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <td style={tdStyle}>{i + 1}</td>
-                      <td style={tdStyle}>{p.productName}</td>
-                      <td style={tdStyle}>{p.batchNumber}</td>
-                      <td style={tdStyle}>{new Date(p.productionDate).toLocaleDateString()}</td>
-                      <td style={tdStyle}>{p.quantityKg}</td>
-                      <td style={tdStyle}>{p.unit}</td>
-                      <td style={tdStyle}>{p.remarks}</td>
-                      <td style={tdStyle}>
-                        <Tooltip title="Delete">
-                          <IconButton color="error" size="small" onClick={() => handleDelete(p._id)}>
-                            <Delete />
-                          </IconButton>
-                        </Tooltip>
-                      </td>
-                    </motion.tr>
-                  ))}
+                {filteredProducts.map((prod, i) => (
+                  <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <td style={tdStyle}>{i + 1}</td>
+                    <td style={tdStyle}>{prod.productName}</td>
+                    <td style={tdStyle}>{prod.batchNumber}</td>
+                    <td style={tdStyle}>{new Date(prod.productionDate).toLocaleDateString()}</td>
+                    <td style={tdStyle}>{prod.quantityKg}</td>
+                    <td style={tdStyle}>{prod.unit}</td>
+                    <td style={tdStyle}>{prod.remarks}</td>
+                    <td style={tdStyle}>
+                      <Tooltip title="Delete">
+                        <IconButton color="error" size="small" onClick={() => handleDelete(prod._id)}>
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
+                    </td>
+                  </motion.tr>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "10px" }}>
+                      No finished products found.
+                    </td>
+                  </tr>
+                )}
               </AnimatePresence>
             </tbody>
           </table>
