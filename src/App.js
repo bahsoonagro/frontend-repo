@@ -5,7 +5,7 @@ import RawMaterials from "./components/RawMaterials";
 import StockMovements from "./components/StockMovements";
 import FinishedProducts from "./components/FinishedProducts";
 import DispatchDelivery from "./components/DispatchDelivery";
-import StockManagement from "./pages/StockManagement";
+//import StockManagement from "./pages/StockManagement";
 import Reports from "./components/Reports";
 
 const tabs = [
@@ -14,7 +14,7 @@ const tabs = [
   { id: "finishedProducts", label: "Finished Products", component: FinishedProducts },
   { id: "stockMovements", label: "Stock Movements", component: StockMovements },
   { id: "dispatchDelivery", label: "Dispatch & Delivery", component: DispatchDelivery },
-  { id: "stockManagement", label: "Stock Management", component: StockManagement },
+  //{ id: "stockManagement", label: "Stock Management", component: StockManagement },
   { id: "reports", label: "Reports", component: Reports },
 ];
 
