@@ -8,194 +8,105 @@ import {
   Paper,
   Typography,
   IconButton,
-  Tooltip,
+  Tabs,
+  Tab,
 } from "@mui/material";
-import { Delete, Print, FileDownload } from "@mui/icons-material";
+import { Delete, Print, Add, Remove } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
-// 🌍 Backend Endpoints
-const RAW_API = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
-const STOCK_API = "https://backend-repo-ydwt.onrender.com/api/stock-movements";
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
+const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
 
-// 🎨 Table Styling
-const thStyle = {
-  padding: "6px",
-  border: "1px solid #000",
-  textAlign: "center",
-};
-const tdStyle = {
-  padding: "6px",
-  border: "1px solid #000",
-  textAlign: "center",
-};
+const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
+
+const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
 export default function RawMaterials() {
-  const [formData, setFormData] = useState({
-    materialName: "",
-    batchNumber: "",
-    dateReceived: "",
-    quantity: "",
-    unit: "",
-    supplier: "",
-    remarks: "",
-  });
-
+  const [currentTab, setCurrentTab] = useState(0);
   const [materials, setMaterials] = useState([]);
+  const [formData, setFormData] = useState({
+    rawMaterialType: RAW_MATERIALS_TABS[0],
+    supplierName: "",
+    supplierPhone: "",
+    supplierBags: "",
+    extraKg: "",
+    storeKeeper: "",
+    supervisor: "",
+    location: "",
+    date: "",
+    batchNumber: "",
+  });
+  const [step, setStep] = useState(1);
   const printRef = useRef();
 
-  // 📥 Fetch Raw Materials
-  const fetchMaterials = async () => {
-    try {
-      const res = await fetch(RAW_API);
-      const data = await res.json();
-      setMaterials(data);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
+  // LPO state
+  const [lpoStep, setLpoStep] = useState(1);
+  const [lpoItems, setLpoItems] = useState([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const [lpoData, setLpoData] = useState({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
 
   useEffect(() => {
     fetchMaterials();
   }, []);
 
-  // 📝 Handle Input Change
+  const fetchMaterials = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setMaterials(res.data);
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 💾 Save Raw Material AND Create Stock Movement
-  const handleSave = async () => {
-    if (
-      !formData.materialName ||
-      !formData.batchNumber ||
-      !formData.dateReceived ||
-      !formData.quantity ||
-      !formData.unit
-    ) {
-      alert("All required fields must be filled!");
-      return;
-    }
+  const bagsAfterStd = Math.floor(formData.supplierBags || 0);
+  const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
 
-    const cleanedData = {
-      ...formData,
-      quantity: Number(formData.quantity) || 0,
-      dateReceived: new Date(formData.dateReceived),
-    };
+  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
+  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
 
+  const handleSaveMaterial = async () => {
     try {
-      // 1️⃣ Save Raw Material
-      const res = await fetch(RAW_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanedData),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const newMaterial = await res.json();
-
-      setMaterials([...materials, newMaterial]);
-
-      // 2️⃣ Also Create Stock Movement (type = IN)
-      await fetch(STOCK_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          batchNumber: newMaterial.batchNumber,
-          itemName: newMaterial.materialName,
-          movementDate: newMaterial.dateReceived,
-          movementType: "IN",
-          quantity: newMaterial.quantity,
-          unit: newMaterial.unit,
-          remarks: `Received from ${newMaterial.supplier}`,
-        }),
-      });
-
-      // 3️⃣ Reset Form
-      setFormData({
-        materialName: "",
-        batchNumber: "",
-        dateReceived: "",
-        quantity: "",
-        unit: "",
-        supplier: "",
-        remarks: "",
-      });
+      const newEntry = { ...formData, bagsAfterStd, totalWeight };
+      const res = await axios.post(API_URL, newEntry);
+      setMaterials([...materials, res.data]);
+      setFormData({ ...formData, supplierName: "", supplierPhone: "", supplierBags: "", extraKg: "", storeKeeper: "", supervisor: "", location: "", date: "", batchNumber: "" });
+      setStep(1);
     } catch (err) {
-      console.error("Save error:", err.message);
+      console.error(err.response?.data || err.message);
     }
   };
 
-  // ❌ Delete Raw Material
-  const handleDelete = async (id) => {
+  const handleDeleteMaterial = async (id) => {
     try {
-      await fetch(`${RAW_API}/${id}`, { method: "DELETE" });
+      await axios.delete(`${API_URL}/${id}`);
       setMaterials(materials.filter((m) => m._id !== id));
     } catch (err) {
-      console.error("Delete error:", err.message);
+      console.error(err.response?.data || err.message);
     }
   };
 
-  // 📊 Export Excel
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      materials.map((m) => ({
-        "Batch Number": m.batchNumber,
-        "Material": m.materialName,
-        "Date Received": new Date(m.dateReceived).toLocaleDateString(),
-        Quantity: m.quantity,
-        Unit: m.unit,
-        Supplier: m.supplier,
-        Remarks: m.remarks,
-      }))
+  const calculateTotals = (filtered) =>
+    filtered.reduce(
+      (acc, m) => {
+        acc.bagsAfterStd += Number(m.bagsAfterStd || 0);
+        acc.totalWeight += Number(m.totalWeight || 0);
+        return acc;
+      },
+      { bagsAfterStd: 0, totalWeight: 0 }
     );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
-    XLSX.writeFile(wb, "RawMaterials.xlsx");
-  };
 
-  // 📑 Export PDF
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Raw Materials", 14, 15);
-    doc.autoTable({
-      startY: 20,
-      head: [
-        [
-          "Batch No.",
-          "Material",
-          "Date Received",
-          "Quantity",
-          "Unit",
-          "Supplier",
-          "Remarks",
-        ],
-      ],
-      body: materials.map((m) => [
-        m.batchNumber,
-        m.materialName,
-        new Date(m.dateReceived).toLocaleDateString(),
-        m.quantity,
-        m.unit,
-        m.supplier,
-        m.remarks,
-      ]),
-      theme: "grid",
-      headStyles: { fillColor: [25, 118, 210], textColor: 255 },
-    });
-    doc.save("RawMaterials.pdf");
-  };
-
-  // 🖨️ Print
-  const handlePrint = () => {
+  const handlePrintTable = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
-    WinPrint.document.write("<html><head><title>Raw Materials</title>");
-    WinPrint.document.write(
-      "<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>"
-    );
+    WinPrint.document.write("<html><head><title>Raw Materials Inventory</title>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;} tr:hover{background-color:#e3f2fd;}</style>");
     WinPrint.document.write("</head><body>");
     WinPrint.document.write(printContent);
     WinPrint.document.write("</body></html>");
@@ -204,191 +115,201 @@ export default function RawMaterials() {
     WinPrint.print();
   };
 
+  const exportTableToExcel = () => {
+    const filtered = materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]);
+    const ws = XLSX.utils.json_to_sheet(
+      filtered.map((m, i) => ({
+        "S/N": i + 1,
+        Date: new Date(m.date).toLocaleDateString(),
+        Material: m.rawMaterialType,
+        Supplier: m.supplierName,
+        "Bags After Std": m.bagsAfterStd,
+        "Total Weight (kg)": m.totalWeight,
+        "Batch Number": m.batchNumber,
+        "Store Keeper": m.storeKeeper,
+        Supervisor: m.supervisor,
+        Location: m.location,
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
+    XLSX.writeFile(wb, "RawMaterials.xlsx");
+  };
+
+  // LPO Handlers
+  const handleLpoItemChange = (index, e) => {
+    const { name, value } = e.target;
+    const updatedItems = [...lpoItems];
+    updatedItems[index][name] = value;
+    setLpoItems(updatedItems);
+  };
+  const addLpoItem = () => setLpoItems([...lpoItems, { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const removeLpoItem = (index) => setLpoItems(lpoItems.filter((_, i) => i !== index));
+  const handleLpoChange = (e) => {
+    const { name, value } = e.target;
+    setLpoData((prev) => ({ ...prev, [name]: value }));
+  };
+  const handleSaveLpo = async () => {
+    try {
+      const totalCost = lpoItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
+      const payload = { ...lpoData, items: lpoItems, totalCost };
+      await axios.post(LPO_URL, payload);
+      setLpoItems([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+      setLpoStep(1);
+      alert("LPO saved successfully!");
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{ mb: 3, color: "#1976d2" }}
-      >
-        Raw Materials
-      </Typography>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials & LPO Entry</Typography>
 
-      {/* Input Form */}
-      <Paper elevation={6} sx={{ p: 2, mb: 4, borderRadius: 3 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
-            <TextField
-              name="materialName"
-              label="Material"
-              size="small"
-              value={formData.materialName}
-              onChange={handleChange}
-              fullWidth
-            />
+      {/* Tabs */}
+      <Tabs value={currentTab} onChange={(e, val) => setCurrentTab(val)} sx={{ mb: 3 }}>
+        {RAW_MATERIALS_TABS.map((tab, i) => <Tab label={tab} key={i} />)}
+      </Tabs>
+
+      {/* Raw Material Multi-Step Form */}
+      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        {step === 1 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={4}><TextField label="Supplier Name" name="supplierName" value={formData.supplierName} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={4}><TextField label="Supplier Phone" name="supplierPhone" value={formData.supplierPhone} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Supplier Quantity (bags)" name="supplierBags" type="number" value={formData.supplierBags} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}><Button variant="contained" size="small" color="primary" onClick={handleNext}>Next →</Button></Grid>
           </Grid>
-          <Grid item xs={6} sm={3}>
-            <TextField
-              name="batchNumber"
-              label="Batch Number"
-              size="small"
-              value={formData.batchNumber}
-              onChange={handleChange}
-              fullWidth
-            />
+        )}
+        {step === 2 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Extra Kg" name="extraKg" type="number" value={formData.extraKg} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Bags After Std" value={bagsAfterStd} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Total Weight (kg)" value={totalWeight} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={1}>
+              <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
+              <Button variant="contained" size="small" color="primary" onClick={handleNext}>Next →</Button>
+            </Grid>
           </Grid>
-          <Grid item xs={6} sm={3}>
-            <TextField
-              name="dateReceived"
-              label="Date Received"
-              type="date"
-              size="small"
-              value={formData.dateReceived}
-              onChange={handleChange}
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
+        )}
+        {step === 3 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Store Keeper" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Supervisor" name="supervisor" value={formData.supervisor} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Location" name="location" value={formData.location} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Batch Number" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={1}>
+              <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
+              <Button variant="contained" size="small" color="success" onClick={handleSaveMaterial}>Save Material</Button>
+            </Grid>
           </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="quantity"
-              label="Quantity"
-              type="number"
-              size="small"
-              value={formData.quantity}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField
-              name="unit"
-              label="Unit"
-              size="small"
-              value={formData.unit}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <TextField
-              name="supplier"
-              label="Supplier"
-              size="small"
-              value={formData.supplier}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField
-              name="remarks"
-              label="Remarks"
-              size="small"
-              value={formData.remarks}
-              onChange={handleChange}
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={handleSave}
-            >
-              Save Raw Material
-            </Button>
-          </Grid>
-        </Grid>
+        )}
       </Paper>
 
-      {/* Print + Export */}
-      <Box mb={2} display="flex" gap={2}>
-        <Button
-          variant="outlined"
-          startIcon={<Print />}
-          onClick={handlePrint}
-        >
-          Print Table
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<FileDownload />}
-          onClick={exportExcel}
-        >
-          Export Excel
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<FileDownload />}
-          onClick={exportPDF}
-        >
-          Export PDF
-        </Button>
-      </Box>
+      {/* LPO Multi-Step Form */}
+      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Local Purchase Order (LPO)</Typography>
 
-      {/* Table */}
-      <Box ref={printRef}>
-        <Paper
-          elevation={3}
-          sx={{ borderRadius: 3, overflowX: "auto" }}
-        >
+        {lpoStep === 1 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={2}><TextField label="Year" name="year" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={2}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
+              <Button variant="contained" size="small" color="primary" onClick={() => setLpoStep(2)}>Next →</Button>
+            </Grid>
+          </Grid>
+        )}
+
+        {lpoStep === 2 && (
+          <Box>
+            <AnimatePresence>
+              {lpoItems.map((item, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+                  <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
+                    <Grid item xs={12} md={3}>
+                      <TextField select label="Material" name="rawMaterialType" value={item.rawMaterialType} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" SelectProps={{ native: true }}>
+                        {RAW_MATERIALS_TABS.map((tab, j) => <option value={tab} key={j}>{tab}</option>)}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={2}><TextField label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
+                    <Grid item xs={12} md={2}><TextField label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
+                    <Grid item xs={12} md={2}><IconButton color="error" size="small" onClick={() => removeLpoItem(i)}><Remove /></IconButton></Grid>
+                  </Grid>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            <Button startIcon={<Add />} sx={{ mt: 1 }} size="small" onClick={addLpoItem}>Add Item</Button>
+
+            <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
+              <Button variant="outlined" size="small" color="secondary" onClick={() => setLpoStep(1)}>← Previous</Button>
+              <Button variant="contained" size="small" color="success" onClick={handleSaveLpo}>Save LPO</Button>
+            </Box>
+          </Box>
+        )}
+      </Paper>
+
+      {/* Table Section */}
+      <Box ref={printRef} sx={{ mt: 3 }}>
+        <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
+          <Button variant="outlined" startIcon={<Print />} onClick={handlePrintTable}>Print Table</Button>
+          <Button variant="outlined" onClick={exportTableToExcel}>Export Excel</Button>
+        </Box>
+
+        <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <th style={thStyle}>Batch No.</th>
+                <th style={thStyle}>S/N</th>
+                <th style={thStyle}>Date</th>
                 <th style={thStyle}>Material</th>
-                <th style={thStyle}>Date Received</th>
-                <th style={thStyle}>Quantity</th>
-                <th style={thStyle}>Unit</th>
                 <th style={thStyle}>Supplier</th>
-                <th style={thStyle}>Remarks</th>
+                <th style={thStyle}>Bags After Std</th>
+                <th style={thStyle}>Total Weight (kg)</th>
+                <th style={thStyle}>Batch Number</th>
+                <th style={thStyle}>Store Keeper</th>
+                <th style={thStyle}>Supervisor</th>
+                <th style={thStyle}>Location</th>
                 <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
-                {materials.map((mat) => (
-                  <motion.tr
-                    key={mat._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <td style={tdStyle}>{mat.batchNumber}</td>
-                    <td style={tdStyle}>{mat.materialName}</td>
-                    <td style={tdStyle}>
-                      {new Date(mat.dateReceived).toLocaleDateString()}
-                    </td>
-                    <td style={tdStyle}>{mat.quantity}</td>
-                    <td style={tdStyle}>{mat.unit}</td>
-                    <td style={tdStyle}>{mat.supplier}</td>
-                    <td style={tdStyle}>{mat.remarks}</td>
-                    <td style={tdStyle}>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          color="error"
-                          size="small"
-                          onClick={() => handleDelete(mat._id)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Tooltip>
-                    </td>
+                {materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab])
+                  .map((m, i) => (
+                  <motion.tr key={m._id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
+                    <td style={tdStyle}>{i + 1}</td>
+                    <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
+                    <td style={tdStyle}>{m.rawMaterialType}</td>
+                    <td style={tdStyle}>{m.supplierName}</td>
+                    <td style={tdStyle}>{m.bagsAfterStd}</td>
+                    <td style={tdStyle}>{m.totalWeight}</td>
+                    <td style={tdStyle}>{m.batchNumber}</td>
+                    <td style={tdStyle}>{m.storeKeeper}</td>
+                    <td style={tdStyle}>{m.supervisor}</td>
+                    <td style={tdStyle}>{m.location}</td>
+                    <td style={tdStyle}><IconButton color="error" size="small" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton></td>
                   </motion.tr>
                 ))}
-                {materials.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="8"
-                      style={{ textAlign: "center", padding: "10px" }}
-                    >
-                      No raw materials found.
-                    </td>
-                  </tr>
-                )}
               </AnimatePresence>
             </tbody>
+            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
+              <tr>
+                <td style={tdStyle} colSpan={4}>Totals</td>
+                {(() => {
+                  const totals = calculateTotals(materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]));
+                  return (
+                    <>
+                      <td style={tdStyle}>{totals.bagsAfterStd}</td>
+                      <td style={tdStyle}>{totals.totalWeight}</td>
+                      <td style={tdStyle} colSpan={5}></td>
+                    </>
+                  );
+                })()}
+              </tr>
+            </tfoot>
           </table>
         </Paper>
       </Box>
