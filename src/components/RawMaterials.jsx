@@ -11,16 +11,14 @@ import {
   Tabs,
   Tab,
 } from "@mui/material";
-import { Delete, Print, Add, Remove } from "@mui/icons-material";
+import { Delete, Print } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import * as XLSX from "xlsx";
 
 const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
-const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
 
 const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
-
 const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
@@ -38,14 +36,12 @@ export default function RawMaterials() {
     location: "",
     date: "",
     batchNumber: "",
+    finishedProductKg: "", // New: finished product input
   });
   const [step, setStep] = useState(1);
   const printRef = useRef();
 
-  // LPO state
-  const [lpoStep, setLpoStep] = useState(1);
-  const [lpoItems, setLpoItems] = useState([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
-  const [lpoData, setLpoData] = useState({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+  const LOSS_TOLERANCE = 0.15; // 15% tolerance
 
   useEffect(() => {
     fetchMaterials();
@@ -68,15 +64,33 @@ export default function RawMaterials() {
   const bagsAfterStd = Math.floor(formData.supplierBags || 0);
   const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
 
+  // Loss calculations
+  const totalInputWithTolerance = totalWeight * (1 + LOSS_TOLERANCE);
+  const actualLoss = totalInputWithTolerance - Number(formData.finishedProductKg || 0);
+  const lossPercentage = (actualLoss / totalInputWithTolerance) * 100;
+  const isLossExceedingTolerance = lossPercentage > LOSS_TOLERANCE * 100;
+
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
   const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const handleSaveMaterial = async () => {
     try {
-      const newEntry = { ...formData, bagsAfterStd, totalWeight };
+      const newEntry = { ...formData, bagsAfterStd, totalWeight, totalInputWithTolerance, actualLoss, lossPercentage };
       const res = await axios.post(API_URL, newEntry);
       setMaterials([...materials, res.data]);
-      setFormData({ ...formData, supplierName: "", supplierPhone: "", supplierBags: "", extraKg: "", storeKeeper: "", supervisor: "", location: "", date: "", batchNumber: "" });
+      setFormData({
+        rawMaterialType: RAW_MATERIALS_TABS[currentTab],
+        supplierName: "",
+        supplierPhone: "",
+        supplierBags: "",
+        extraKg: "",
+        storeKeeper: "",
+        supervisor: "",
+        location: "",
+        date: "",
+        batchNumber: "",
+        finishedProductKg: "",
+      });
       setStep(1);
     } catch (err) {
       console.error(err.response?.data || err.message);
@@ -125,6 +139,9 @@ export default function RawMaterials() {
         Supplier: m.supplierName,
         "Bags After Std": m.bagsAfterStd,
         "Total Weight (kg)": m.totalWeight,
+        "Finished Product (kg)": m.finishedProductKg,
+        "Actual Loss (kg)": m.actualLoss,
+        "Loss %": m.lossPercentage.toFixed(2),
         "Batch Number": m.batchNumber,
         "Store Keeper": m.storeKeeper,
         Supervisor: m.supervisor,
@@ -136,36 +153,9 @@ export default function RawMaterials() {
     XLSX.writeFile(wb, "RawMaterials.xlsx");
   };
 
-  // LPO Handlers
-  const handleLpoItemChange = (index, e) => {
-    const { name, value } = e.target;
-    const updatedItems = [...lpoItems];
-    updatedItems[index][name] = value;
-    setLpoItems(updatedItems);
-  };
-  const addLpoItem = () => setLpoItems([...lpoItems, { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
-  const removeLpoItem = (index) => setLpoItems(lpoItems.filter((_, i) => i !== index));
-  const handleLpoChange = (e) => {
-    const { name, value } = e.target;
-    setLpoData((prev) => ({ ...prev, [name]: value }));
-  };
-  const handleSaveLpo = async () => {
-    try {
-      const totalCost = lpoItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
-      const payload = { ...lpoData, items: lpoItems, totalCost };
-      await axios.post(LPO_URL, payload);
-      setLpoItems([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
-      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
-      setLpoStep(1);
-      alert("LPO saved successfully!");
-    } catch (err) {
-      console.error(err.response?.data || err.message);
-    }
-  };
-
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials & LPO Entry</Typography>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials Entry</Typography>
 
       {/* Tabs */}
       <Tabs value={currentTab} onChange={(e, val) => setCurrentTab(val)} sx={{ mb: 3 }}>
@@ -187,6 +177,7 @@ export default function RawMaterials() {
             <Grid item xs={12} md={3}><TextField label="Extra Kg" name="extraKg" type="number" value={formData.extraKg} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} md={3}><TextField label="Bags After Std" value={bagsAfterStd} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
             <Grid item xs={12} md={3}><TextField label="Total Weight (kg)" value={totalWeight} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Finished Product (kg)" name="finishedProductKg" type="number" value={formData.finishedProductKg} onChange={handleChange} fullWidth size="small" /></Grid>
             <Grid item xs={12} display="flex" justifyContent="space-between" gap={1}>
               <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
               <Button variant="contained" size="small" color="primary" onClick={handleNext}>Next →</Button>
@@ -203,51 +194,10 @@ export default function RawMaterials() {
               <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
               <Button variant="contained" size="small" color="success" onClick={handleSaveMaterial}>Save Material</Button>
             </Grid>
+            {isLossExceedingTolerance && (
+              <Grid item xs={12}><Typography color="error">Warning: Loss exceeds 15% tolerance!</Typography></Grid>
+            )}
           </Grid>
-        )}
-      </Paper>
-
-      {/* LPO Multi-Step Form */}
-      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Local Purchase Order (LPO)</Typography>
-
-        {lpoStep === 1 && (
-          <Grid container spacing={1}>
-            <Grid item xs={12} md={3}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} md={2}><TextField label="Year" name="year" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} md={2}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} md={3}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
-            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
-              <Button variant="contained" size="small" color="primary" onClick={() => setLpoStep(2)}>Next →</Button>
-            </Grid>
-          </Grid>
-        )}
-
-        {lpoStep === 2 && (
-          <Box>
-            <AnimatePresence>
-              {lpoItems.map((item, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-                  <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
-                    <Grid item xs={12} md={3}>
-                      <TextField select label="Material" name="rawMaterialType" value={item.rawMaterialType} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" SelectProps={{ native: true }}>
-                        {RAW_MATERIALS_TABS.map((tab, j) => <option value={tab} key={j}>{tab}</option>)}
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12} md={2}><TextField label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
-                    <Grid item xs={12} md={2}><TextField label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
-                    <Grid item xs={12} md={2}><IconButton color="error" size="small" onClick={() => removeLpoItem(i)}><Remove /></IconButton></Grid>
-                  </Grid>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            <Button startIcon={<Add />} sx={{ mt: 1 }} size="small" onClick={addLpoItem}>Add Item</Button>
-
-            <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
-              <Button variant="outlined" size="small" color="secondary" onClick={() => setLpoStep(1)}>← Previous</Button>
-              <Button variant="contained" size="small" color="success" onClick={handleSaveLpo}>Save LPO</Button>
-            </Box>
-          </Box>
         )}
       </Paper>
 
@@ -268,6 +218,9 @@ export default function RawMaterials() {
                 <th style={thStyle}>Supplier</th>
                 <th style={thStyle}>Bags After Std</th>
                 <th style={thStyle}>Total Weight (kg)</th>
+                <th style={thStyle}>Finished Product (kg)</th>
+                <th style={thStyle}>Actual Loss (kg)</th>
+                <th style={thStyle}>Loss %</th>
                 <th style={thStyle}>Batch Number</th>
                 <th style={thStyle}>Store Keeper</th>
                 <th style={thStyle}>Supervisor</th>
@@ -286,6 +239,9 @@ export default function RawMaterials() {
                     <td style={tdStyle}>{m.supplierName}</td>
                     <td style={tdStyle}>{m.bagsAfterStd}</td>
                     <td style={tdStyle}>{m.totalWeight}</td>
+                    <td style={tdStyle}>{m.finishedProductKg}</td>
+                    <td style={tdStyle}>{m.actualLoss}</td>
+                    <td style={tdStyle}>{m.lossPercentage.toFixed(2)}%</td>
                     <td style={tdStyle}>{m.batchNumber}</td>
                     <td style={tdStyle}>{m.storeKeeper}</td>
                     <td style={tdStyle}>{m.supervisor}</td>
@@ -304,7 +260,7 @@ export default function RawMaterials() {
                     <>
                       <td style={tdStyle}>{totals.bagsAfterStd}</td>
                       <td style={tdStyle}>{totals.totalWeight}</td>
-                      <td style={tdStyle} colSpan={5}></td>
+                      <td style={tdStyle} colSpan={7}></td>
                     </>
                   );
                 })()}
