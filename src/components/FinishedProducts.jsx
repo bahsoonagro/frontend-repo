@@ -36,7 +36,7 @@ export default function FinishedProducts() {
     productName: "",
     batchNumber: "",
     productionDate: "",
-    quantityKg: "",
+    quantityctn: "",
     unit: "",
     remarks: "",
   });
