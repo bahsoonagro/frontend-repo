@@ -7,7 +7,7 @@ import RawMaterials from "./components/RawMaterials";
 import FinishedProducts from "./components/FinishedProducts";
 import StockMovements from "./components/StockMovements"; // Only stock movement now
 import DispatchDelivery from "./components/DispatchDelivery";
-import Reports from "./pages/Reports";
+import Reports from "./components/Reports";
 
 // Main App component
 const App = () => {
