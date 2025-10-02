@@ -1,278 +1,306 @@
-// src/components/RawMaterial.jsx
-import React, { useState, useEffect, useRef } from "react";
-import {
-  Box, Button, Grid, TextField, Paper, Typography, IconButton, Tooltip
-} from "@mui/material";
-import { Delete, Print, FileDownload } from "@mui/icons-material";
-import { motion, AnimatePresence } from "framer-motion";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+// RawMaterials.jsx
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
+const materials = ["Sorghum", "Pigeon Peas", "Sesame Seeds", "Rice", "Sugar"];
 
-const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
-const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
-
-export default function RawMaterial() {
+const RawMaterials = () => {
+  const [activeTab, setActiveTab] = useState("Sorghum");
+  const [rawMaterials, setRawMaterials] = useState([]);
   const [formData, setFormData] = useState({
-    date: "", openingBal: "", newStock: "", totalStock: "", stockOut: "",
-    balance: "", remarks: "", requisitionNumber: "", storeKeeper: "", supervisor: "",
-    batchNumber: "", location: ""
+    date: "",
+    storeKeeper: "",
+    supervisor: "",
+    location: "",
+    batchNumber: "",
+    openingBalance: "",
+    newStock: "",
+    totalStock: "",
+    stockOut: "",
+    balance: "",
+    remarks: "",
+    requisitionNumber: "",
+    productName: "Sorghum",
   });
-  const [materials, setMaterials] = useState([]);
-  const printRef = useRef();
+  const [step, setStep] = useState(1);
 
-  // Fetch all raw materials
-  const fetchMaterials = async () => {
+  // Load raw materials
+  useEffect(() => {
+    fetchRawMaterials();
+  }, [activeTab]);
+
+  const fetchRawMaterials = async () => {
     try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      setMaterials(data);
-    } catch (err) {
-      console.error("Fetch error:", err);
+      const res = await axios.get("/api/rawmaterials");
+      setRawMaterials(res.data.filter((item) => item.productName === activeTab));
+    } catch (error) {
+      console.error("Error fetching raw materials:", error);
     }
   };
 
-  useEffect(() => {
-    fetchMaterials();
-  }, []);
-
-  // Handle form changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => {
-      let updated = { ...prev, [name]: value };
 
-      // auto-calculate totalStock & balance
-      const opening = parseFloat(updated.openingBal) || 0;
-      const newS = parseFloat(updated.newStock) || 0;
-      const out = parseFloat(updated.stockOut) || 0;
+    let updated = { ...formData, [name]: value, productName: activeTab };
 
+    // Auto calculations
+    if (name === "openingBalance" || name === "newStock") {
+      const opening = parseFloat(
+        name === "openingBalance" ? value : updated.openingBalance
+      ) || 0;
+      const newS = parseFloat(
+        name === "newStock" ? value : updated.newStock
+      ) || 0;
       updated.totalStock = opening + newS;
-      updated.balance = updated.totalStock - out;
+      updated.balance = updated.totalStock - (parseFloat(updated.stockOut) || 0);
+    }
 
-      return updated;
-    });
+    if (name === "stockOut") {
+      const total = parseFloat(updated.totalStock) || 0;
+      const out = parseFloat(value) || 0;
+      updated.balance = total - out;
+    }
+
+    setFormData(updated);
   };
 
-  // Save raw material
-  const handleSave = async () => {
-    const requiredFields = ["date", "batchNumber", "storeKeeper", "supervisor", "location"];
-    for (let field of requiredFields) {
-      if (!formData[field]) return alert("Please fill all required fields!");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.date || !formData.storeKeeper || !formData.supervisor) {
+      alert("Please complete all required fields");
+      return;
     }
 
     try {
-      const payload = {
-        ...formData,
-        date: new Date(formData.date),
-        openingBal: parseFloat(formData.openingBal) || 0,
-        newStock: parseFloat(formData.newStock) || 0,
-        totalStock: parseFloat(formData.totalStock) || 0,
-        stockOut: parseFloat(formData.stockOut) || 0,
-        balance: parseFloat(formData.balance) || 0,
-      };
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setMaterials([...materials, data]);
-
-      setFormData({
-        date: "", openingBal: "", newStock: "", totalStock: "", stockOut: "",
-        balance: "", remarks: "", requisitionNumber: "", storeKeeper: "", supervisor: "",
-        batchNumber: "", location: ""
-      });
-
-    } catch (err) {
-      console.error("Save error:", err.message);
+      await axios.post("/api/rawmaterials", formData);
+      fetchRawMaterials();
+      resetForm();
+    } catch (error) {
+      console.error("Save error:", error.response?.data || error);
+      alert("Failed to save record");
     }
   };
 
-  // Delete raw material
-  const handleDelete = async (id) => {
-    try {
-      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setMaterials(materials.filter(m => m._id !== id));
-    } catch (err) {
-      console.error("Delete error:", err.message);
-    }
-  };
-
-  // Export Excel
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(materials.map(m => ({
-      "Date": new Date(m.date).toLocaleDateString(),
-      "Opening Qty": m.openingBal,
-      "New Stock": m.newStock,
-      "Total Stock": m.totalStock,
-      "Stock Out": m.stockOut,
-      "Balance": m.balance,
-      "Remarks": m.remarks,
-      "REQ No": m.requisitionNumber,
-      "Store Keeper": m.storeKeeper,
-      "Supervisor": m.supervisor,
-      "Batch": m.batchNumber,
-      "Location": m.location
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
-    XLSX.writeFile(wb, "RawMaterials.xlsx");
-  };
-
-  // Export PDF
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Raw Materials", 14, 15);
-    doc.autoTable({
-      startY: 20,
-      head: [[
-                "Date", "Opening Qty", "New Stock", "Total Stock", "Stock Out", "Balance", "Remarks", "REQ No", "Store Keeper", "Supervisor", "Batch", "Location"
-
-      ]],
-      body: materials.map(m => [
-        new Date(m.date).toLocaleDateString(),
-        m.openingBal, m.newStock, m.totalStock, m.stockOut, m.balance,
-        m.remarks, m.requisitionNumber, m.storeKeeper, m.supervisor, m.batchNumber, m.location
-      ]),
-      theme: "grid",
-      headStyles: { fillColor: [25, 118, 210], textColor: 255 },
+  const resetForm = () => {
+    setFormData({
+      date: "",
+      storeKeeper: "",
+      supervisor: "",
+      location: "",
+      batchNumber: "",
+      openingBalance: "",
+      newStock: "",
+      totalStock: "",
+      stockOut: "",
+      balance: "",
+      remarks: "",
+      requisitionNumber: "",
+      productName: activeTab,
     });
-    doc.save("RawMaterials.pdf");
-  };
-
-  // Print
-  const handlePrint = () => {
-    const printContent = printRef.current.innerHTML;
-    const WinPrint = window.open("", "", "width=900,height=650");
-    WinPrint.document.write("<html><head><title>Raw Materials</title>");
-    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
-    WinPrint.document.write("</head><body>");
-    WinPrint.document.write(printContent);
-    WinPrint.document.write("</body></html>");
-    WinPrint.document.close();
-    WinPrint.focus();
-    WinPrint.print();
+    setStep(1);
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3, color: "#1976d2" }}>
-        Raw Materials
-      </Typography>
+    <div className="p-6">
+      <h2 className="text-xl font-bold mb-4">Raw Materials Management</h2>
 
-      <Paper elevation={6} sx={{ p: 2, mb: 4, borderRadius: 3 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
-            <TextField label="Date" type="date" size="small" name="date" value={formData.date} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField label="Opening Bal" type="number" size="small" name="openingBal" value={formData.openingBal} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField label="New Stock" type="number" size="small" name="newStock" value={formData.newStock} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField label="Total Stock" type="number" size="small" name="totalStock" value={formData.totalStock} InputProps={{ readOnly: true }} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField label="Stock Out" type="number" size="small" name="stockOut" value={formData.stockOut} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField label="Balance" type="number" size="small" name="balance" value={formData.balance} InputProps={{ readOnly: true }} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField label="Remarks" size="small" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <TextField label="Requisition Number" size="small" name="requisitionNumber" value={formData.requisitionNumber} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <TextField label="Store Keeper" size="small" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <TextField label="Supervisor" size="small" name="supervisor" value={formData.supervisor} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <TextField label="Batch" size="small" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <TextField label="Location" size="small" name="location" value={formData.location} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12}>
-            <Button variant="contained" color="success" onClick={handleSave}>Save</Button>
-          </Grid>
-        </Grid>
-      </Paper>
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-4">
+        {materials.map((mat) => (
+          <button
+            key={mat}
+            onClick={() => {
+              setActiveTab(mat);
+              resetForm();
+            }}
+            className={`px-4 py-2 rounded ${
+              activeTab === mat ? "bg-blue-500 text-white" : "bg-gray-200"
+            }`}
+          >
+            {mat}
+          </button>
+        ))}
+      </div>
 
-      <Box mb={2} display="flex" gap={2}>
-        <Button variant="outlined" startIcon={<Print />} onClick={handlePrint}>Print Table</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportExcel}>Export Excel</Button>
-        <Button variant="outlined" startIcon={<FileDownload />} onClick={exportPDF}>Export PDF</Button>
-      </Box>
+      {/* Multi-step Form */}
+      <form onSubmit={handleSubmit} className="space-y-4 border p-4 rounded bg-gray-50">
+        {step === 1 && (
+          <div>
+            <h3 className="font-semibold mb-2">Step 1: General Information</h3>
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+              required
+            />
+            <input
+              type="text"
+              name="storeKeeper"
+              placeholder="Store Keeper"
+              value={formData.storeKeeper}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+              required
+            />
+            <input
+              type="text"
+              name="supervisor"
+              placeholder="Supervisor"
+              value={formData.supervisor}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+              required
+            />
+            <input
+              type="text"
+              name="location"
+              placeholder="Location"
+              value={formData.location}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <input
+              type="text"
+              name="batchNumber"
+              placeholder="Batch Number"
+              value={formData.batchNumber}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Next
+            </button>
+          </div>
+        )}
 
-      <Box ref={printRef}>
-        <Paper elevation={3} sx={{ borderRadius: 3, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-           <thead>
-  <tr className="bg-gray-100">
-    <th className="px-4 py-2">Date</th>
-    <th className="px-4 py-2">Opening bal</th>
-    <th className="px-4 py-2">New stock</th>
-    <th className="px-4 py-2">Total stock</th>
-    <th className="px-4 py-2">Stock out</th>
-    <th className="px-4 py-2">Balance</th>
-    <th className="px-4 py-2">Remarks</th>
-    <th className="px-4 py-2">Requisition number</th>
-    <th className="px-4 py-2">Store keeper</th>
-    <th className="px-4 py-2">Supervisor</th>
-    <th className="px-4 py-2">Batch number</th>
-    <th className="px-4 py-2">Location</th>
-    <th className="px-4 py-2">Actions</th>
-  </tr>
-</thead>
+        {step === 2 && (
+          <div>
+            <h3 className="font-semibold mb-2">Step 2: Stock Details</h3>
+            <input
+              type="number"
+              name="openingBalance"
+              placeholder="Opening Balance"
+              value={formData.openingBalance}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <input
+              type="number"
+              name="newStock"
+              placeholder="New Stock"
+              value={formData.newStock}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <input
+              type="number"
+              name="totalStock"
+              placeholder="Total Stock"
+              value={formData.totalStock}
+              readOnly
+              className="border p-2 w-full mb-2 bg-gray-100"
+            />
+            <input
+              type="number"
+              name="stockOut"
+              placeholder="Stock Out"
+              value={formData.stockOut}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <input
+              type="number"
+              name="balance"
+              placeholder="Balance"
+              value={formData.balance}
+              readOnly
+              className="border p-2 w-full mb-2 bg-gray-100"
+            />
+            <input
+              type="text"
+              name="remarks"
+              placeholder="Remarks"
+              value={formData.remarks}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
+            <input
+              type="text"
+              name="requisitionNumber"
+              placeholder="Requisition Number"
+              value={formData.requisitionNumber}
+              onChange={handleChange}
+              className="border p-2 w-full mb-2"
+            />
 
-            <tbody>
-              <AnimatePresence>
-                {materials.map((mat) => (
-                  <motion.tr key={mat._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <td style={tdStyle}>{new Date(mat.date).toLocaleDateString()}</td>
-                    <td style={tdStyle}>{mat.openingBal}</td>
-                    <td style={tdStyle}>{mat.newStock}</td>
-                    <td style={tdStyle}>{mat.totalStock}</td>
-                    <td style={tdStyle}>{mat.stockOut}</td>
-                    <td style={tdStyle}>{mat.balance}</td>
-                    <td style={tdStyle}>{mat.remarks}</td>
-                    <td style={tdStyle}>{mat.requisitionNumber}</td>
-                    <td style={tdStyle}>{mat.storeKeeper}</td>
-                    <td style={tdStyle}>{mat.supervisor}</td>
-                    <td style={tdStyle}>{mat.batchNumber}</td>
-                    <td style={tdStyle}>{mat.location}</td>
-                    <td style={tdStyle}>
-                      <Tooltip title="Delete">
-                        <IconButton color="error" size="small" onClick={() => handleDelete(mat._id)}>
-                          <Delete />
-                        </IconButton>
-                      </Tooltip>
-                    </td>
-                  </motion.tr>
-                ))}
-                {materials.length === 0 && (
-                  <tr>
-                    <td colSpan="13" style={{ textAlign: "center", padding: "10px" }}>No raw materials found.</td>
-                  </tr>
-                )}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </Paper>
-      </Box>
-    </Box>
+            <div className="flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="bg-gray-400 text-white px-4 py-2 rounded"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                className="bg-green-500 text-white px-4 py-2 rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+
+      {/* Table */}
+      <h3 className="font-semibold mt-6 mb-2">{activeTab} Records</h3>
+      <table className="w-full border">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border px-2 py-1">Date</th>
+            <th className="border px-2 py-1">Opening Balance</th>
+            <th className="border px-2 py-1">New Stock</th>
+            <th className="border px-2 py-1">Total Stock</th>
+            <th className="border px-2 py-1">Stock Out</th>
+            <th className="border px-2 py-1">Balance</th>
+            <th className="border px-2 py-1">Remarks</th>
+            <th className="border px-2 py-1">Requisition Number</th>
+            <th className="border px-2 py-1">Store Keeper</th>
+            <th className="border px-2 py-1">Supervisor</th>
+            <th className="border px-2 py-1">Batch Number</th>
+            <th className="border px-2 py-1">Location</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rawMaterials.map((mat) => (
+            <tr key={mat._id}>
+              <td className="border px-2 py-1">
+                {new Date(mat.date).toLocaleDateString()}
+              </td>
+              <td className="border px-2 py-1">{mat.openingBalance}</td>
+              <td className="border px-2 py-1">{mat.newStock}</td>
+              <td className="border px-2 py-1">{mat.totalStock}</td>
+              <td className="border px-2 py-1">{mat.stockOut}</td>
+              <td className="border px-2 py-1">{mat.balance}</td>
+              <td className="border px-2 py-1">{mat.remarks}</td>
+              <td className="border px-2 py-1">{mat.requisitionNumber}</td>
+              <td className="border px-2 py-1">{mat.storeKeeper}</td>
+              <td className="border px-2 py-1">{mat.supervisor}</td>
+              <td className="border px-2 py-1">{mat.batchNumber}</td>
+              <td className="border px-2 py-1">{mat.location}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
-}
+};
+
+export default RawMaterials;
