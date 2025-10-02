@@ -7,6 +7,7 @@ const materials = ["Sorghum", "Pigeon Peas", "Sesame Seeds", "Rice", "Sugar"];
 const RawMaterials = () => {
   const [activeTab, setActiveTab] = useState("Sorghum");
   const [rawMaterials, setRawMaterials] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     date: "",
     storeKeeper: "",
@@ -24,7 +25,7 @@ const RawMaterials = () => {
   });
   const [step, setStep] = useState(1);
 
-  // Load raw materials
+  // Load data
   useEffect(() => {
     fetchRawMaterials();
   }, [activeTab]);
@@ -40,7 +41,6 @@ const RawMaterials = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     let updated = { ...formData, [name]: value, productName: activeTab };
 
     // Auto calculations
@@ -73,7 +73,11 @@ const RawMaterials = () => {
     }
 
     try {
-      await axios.post("/api/rawmaterials", formData);
+      if (editingId) {
+        await axios.put(`/api/rawmaterials/${editingId}`, formData);
+      } else {
+        await axios.post("/api/rawmaterials", formData);
+      }
       fetchRawMaterials();
       resetForm();
     } catch (error) {
@@ -98,7 +102,39 @@ const RawMaterials = () => {
       requisitionNumber: "",
       productName: activeTab,
     });
+    setEditingId(null);
     setStep(1);
+  };
+
+  const handleEdit = (mat) => {
+    setFormData({
+      date: mat.date ? mat.date.split("T")[0] : "",
+      storeKeeper: mat.storeKeeper || "",
+      supervisor: mat.supervisor || "",
+      location: mat.location || "",
+      batchNumber: mat.batchNumber || "",
+      openingBalance: mat.openingBalance || "",
+      newStock: mat.newStock || "",
+      totalStock: mat.totalStock || "",
+      stockOut: mat.stockOut || "",
+      balance: mat.balance || "",
+      remarks: mat.remarks || "",
+      requisitionNumber: mat.requisitionNumber || "",
+      productName: activeTab,
+    });
+    setEditingId(mat._id);
+    setStep(1);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+    try {
+      await axios.delete(`/api/rawmaterials/${id}`);
+      fetchRawMaterials();
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete record");
+    }
   };
 
   return (
@@ -252,7 +288,7 @@ const RawMaterials = () => {
                 type="submit"
                 className="bg-green-500 text-white px-4 py-2 rounded"
               >
-                Save
+                {editingId ? "Update" : "Save"}
               </button>
             </div>
           </div>
@@ -276,6 +312,7 @@ const RawMaterials = () => {
             <th className="border px-2 py-1">Supervisor</th>
             <th className="border px-2 py-1">Batch Number</th>
             <th className="border px-2 py-1">Location</th>
+            <th className="border px-2 py-1">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -295,6 +332,20 @@ const RawMaterials = () => {
               <td className="border px-2 py-1">{mat.supervisor}</td>
               <td className="border px-2 py-1">{mat.batchNumber}</td>
               <td className="border px-2 py-1">{mat.location}</td>
+              <td className="border px-2 py-1 space-x-2">
+                <button
+                  onClick={() => handleEdit(mat)}
+                  className="bg-yellow-400 px-2 py-1 rounded"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(mat._id)}
+                  className="bg-red-500 text-white px-2 py-1 rounded"
+                >
+                  Delete
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
