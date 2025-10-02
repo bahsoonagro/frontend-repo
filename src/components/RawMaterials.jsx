@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const materials = ["Sorghum", "Pigeon Peas", "Sesame Seeds", "Rice", "Sugar"];
+const MATERIAL_TABS = ["Sorghum", "Pigeon Peas", "Sesame Seeds", "Rice", "Sugar"];
 
 const RawMaterials = () => {
   const [activeTab, setActiveTab] = useState("Sorghum");
@@ -25,7 +25,7 @@ const RawMaterials = () => {
   });
   const [step, setStep] = useState(1);
 
-  // Load data
+  // Load records by tab
   useEffect(() => {
     fetchRawMaterials();
   }, [activeTab]);
@@ -43,7 +43,6 @@ const RawMaterials = () => {
     const { name, value } = e.target;
     let updated = { ...formData, [name]: value, productName: activeTab };
 
-    // Auto calculations
     if (name === "openingBalance" || name === "newStock") {
       const opening = parseFloat(
         name === "openingBalance" ? value : updated.openingBalance
@@ -66,12 +65,10 @@ const RawMaterials = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.date || !formData.storeKeeper || !formData.supervisor) {
       alert("Please complete all required fields");
       return;
     }
-
     try {
       if (editingId) {
         await axios.put(`/api/rawmaterials/${editingId}`, formData);
@@ -137,157 +134,84 @@ const RawMaterials = () => {
     }
   };
 
+  // --- Totals calculation ---
+  const totals = rawMaterials.reduce(
+    (acc, mat) => {
+      acc.openingBalance += Number(mat.openingBalance) || 0;
+      acc.newStock += Number(mat.newStock) || 0;
+      acc.totalStock += Number(mat.totalStock) || 0;
+      acc.stockOut += Number(mat.stockOut) || 0;
+      acc.balance += Number(mat.balance) || 0;
+      return acc;
+    },
+    { openingBalance: 0, newStock: 0, totalStock: 0, stockOut: 0, balance: 0 }
+  );
+
   return (
     <div className="p-6">
-      <h2 className="text-xl font-bold mb-4">Raw Materials Management</h2>
+      <h2 className="text-2xl font-bold mb-6">Raw Materials Management</h2>
 
       {/* Tabs */}
-      <div className="flex space-x-4 mb-4">
-        {materials.map((mat) => (
+      <div className="flex space-x-3 mb-6">
+        {MATERIAL_TABS.map((tab) => (
           <button
-            key={mat}
+            key={tab}
             onClick={() => {
-              setActiveTab(mat);
+              setActiveTab(tab);
               resetForm();
             }}
-            className={`px-4 py-2 rounded ${
-              activeTab === mat ? "bg-blue-500 text-white" : "bg-gray-200"
+            className={`px-5 py-2 rounded-full font-semibold shadow-md transition ${
+              activeTab === tab
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
-            {mat}
+            {tab}
           </button>
         ))}
       </div>
 
       {/* Multi-step Form */}
-      <form onSubmit={handleSubmit} className="space-y-4 border p-4 rounded bg-gray-50">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-lg rounded-xl p-6 mb-6 border"
+      >
         {step === 1 && (
           <div>
-            <h3 className="font-semibold mb-2">Step 1: General Information</h3>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-              required
-            />
-            <input
-              type="text"
-              name="storeKeeper"
-              placeholder="Store Keeper"
-              value={formData.storeKeeper}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-              required
-            />
-            <input
-              type="text"
-              name="supervisor"
-              placeholder="Supervisor"
-              value={formData.supervisor}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-              required
-            />
-            <input
-              type="text"
-              name="location"
-              placeholder="Location"
-              value={formData.location}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <input
-              type="text"
-              name="batchNumber"
-              placeholder="Batch Number"
-              value={formData.batchNumber}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-            >
-              Next
-            </button>
+            <h3 className="text-lg font-semibold mb-4">Step 1: General Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <input type="date" name="date" value={formData.date} onChange={handleChange} className="border rounded-lg p-2" required />
+              <input type="text" name="storeKeeper" placeholder="Store Keeper" value={formData.storeKeeper} onChange={handleChange} className="border rounded-lg p-2" required />
+              <input type="text" name="supervisor" placeholder="Supervisor" value={formData.supervisor} onChange={handleChange} className="border rounded-lg p-2" required />
+              <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleChange} className="border rounded-lg p-2" />
+              <input type="text" name="batchNumber" placeholder="Batch Number" value={formData.batchNumber} onChange={handleChange} className="border rounded-lg p-2" />
+            </div>
+            <div className="flex justify-end mt-4">
+              <button type="button" onClick={() => setStep(2)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow">
+                Next
+              </button>
+            </div>
           </div>
         )}
 
         {step === 2 && (
           <div>
-            <h3 className="font-semibold mb-2">Step 2: Stock Details</h3>
-            <input
-              type="number"
-              name="openingBalance"
-              placeholder="Opening Balance"
-              value={formData.openingBalance}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <input
-              type="number"
-              name="newStock"
-              placeholder="New Stock"
-              value={formData.newStock}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <input
-              type="number"
-              name="totalStock"
-              placeholder="Total Stock"
-              value={formData.totalStock}
-              readOnly
-              className="border p-2 w-full mb-2 bg-gray-100"
-            />
-            <input
-              type="number"
-              name="stockOut"
-              placeholder="Stock Out"
-              value={formData.stockOut}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <input
-              type="number"
-              name="balance"
-              placeholder="Balance"
-              value={formData.balance}
-              readOnly
-              className="border p-2 w-full mb-2 bg-gray-100"
-            />
-            <input
-              type="text"
-              name="remarks"
-              placeholder="Remarks"
-              value={formData.remarks}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
-            <input
-              type="text"
-              name="requisitionNumber"
-              placeholder="Requisition Number"
-              value={formData.requisitionNumber}
-              onChange={handleChange}
-              className="border p-2 w-full mb-2"
-            />
+            <h3 className="text-lg font-semibold mb-4">Step 2: Stock Details</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <input type="number" name="openingBalance" placeholder="Opening Balance" value={formData.openingBalance} onChange={handleChange} className="border rounded-lg p-2" />
+              <input type="number" name="newStock" placeholder="New Stock" value={formData.newStock} onChange={handleChange} className="border rounded-lg p-2" />
+              <input type="number" name="totalStock" placeholder="Total Stock" value={formData.totalStock} readOnly className="border rounded-lg p-2 bg-gray-100" />
+              <input type="number" name="stockOut" placeholder="Stock Out" value={formData.stockOut} onChange={handleChange} className="border rounded-lg p-2" />
+              <input type="number" name="balance" placeholder="Balance" value={formData.balance} readOnly className="border rounded-lg p-2 bg-gray-100" />
+              <input type="text" name="remarks" placeholder="Remarks" value={formData.remarks} onChange={handleChange} className="border rounded-lg p-2" />
+              <input type="text" name="requisitionNumber" placeholder="Requisition Number" value={formData.requisitionNumber} onChange={handleChange} className="border rounded-lg p-2" />
+            </div>
 
-            <div className="flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="bg-gray-400 text-white px-4 py-2 rounded"
-              >
+            <div className="flex justify-between mt-4">
+              <button type="button" onClick={() => setStep(1)} className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg shadow">
                 Back
               </button>
-              <button
-                type="submit"
-                className="bg-green-500 text-white px-4 py-2 rounded"
-              >
+              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow">
                 {editingId ? "Update" : "Save"}
               </button>
             </div>
@@ -296,60 +220,77 @@ const RawMaterials = () => {
       </form>
 
       {/* Table */}
-      <h3 className="font-semibold mt-6 mb-2">{activeTab} Records</h3>
-      <table className="w-full border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border px-2 py-1">Date</th>
-            <th className="border px-2 py-1">Opening Balance</th>
-            <th className="border px-2 py-1">New Stock</th>
-            <th className="border px-2 py-1">Total Stock</th>
-            <th className="border px-2 py-1">Stock Out</th>
-            <th className="border px-2 py-1">Balance</th>
-            <th className="border px-2 py-1">Remarks</th>
-            <th className="border px-2 py-1">Requisition Number</th>
-            <th className="border px-2 py-1">Store Keeper</th>
-            <th className="border px-2 py-1">Supervisor</th>
-            <th className="border px-2 py-1">Batch Number</th>
-            <th className="border px-2 py-1">Location</th>
-            <th className="border px-2 py-1">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rawMaterials.map((mat) => (
-            <tr key={mat._id}>
-              <td className="border px-2 py-1">
-                {new Date(mat.date).toLocaleDateString()}
-              </td>
-              <td className="border px-2 py-1">{mat.openingBalance}</td>
-              <td className="border px-2 py-1">{mat.newStock}</td>
-              <td className="border px-2 py-1">{mat.totalStock}</td>
-              <td className="border px-2 py-1">{mat.stockOut}</td>
-              <td className="border px-2 py-1">{mat.balance}</td>
-              <td className="border px-2 py-1">{mat.remarks}</td>
-              <td className="border px-2 py-1">{mat.requisitionNumber}</td>
-              <td className="border px-2 py-1">{mat.storeKeeper}</td>
-              <td className="border px-2 py-1">{mat.supervisor}</td>
-              <td className="border px-2 py-1">{mat.batchNumber}</td>
-              <td className="border px-2 py-1">{mat.location}</td>
-              <td className="border px-2 py-1 space-x-2">
-                <button
-                  onClick={() => handleEdit(mat)}
-                  className="bg-yellow-400 px-2 py-1 rounded"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(mat._id)}
-                  className="bg-red-500 text-white px-2 py-1 rounded"
-                >
-                  Delete
-                </button>
-              </td>
+      <h3 className="text-lg font-semibold mb-3">{activeTab} Records</h3>
+      <div className="overflow-x-auto shadow rounded-lg">
+        <table className="w-full border-collapse rounded-lg">
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              {[
+                "Date",
+                "Opening Balance",
+                "New Stock",
+                "Total Stock",
+                "Stock Out",
+                "Balance",
+                "Remarks",
+                "Requisition Number",
+                "Store Keeper",
+                "Supervisor",
+                "Batch Number",
+                "Location",
+                "Actions",
+              ].map((col) => (
+                <th key={col} className="border px-3 py-2 font-semibold uppercase text-sm">
+                  {col}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rawMaterials.map((mat, idx) => (
+              <tr key={mat._id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <td className="border px-3 py-2">{new Date(mat.date).toLocaleDateString()}</td>
+                <td className="border px-3 py-2">{mat.openingBalance}</td>
+                <td className="border px-3 py-2">{mat.newStock}</td>
+                <td className="border px-3 py-2">{mat.totalStock}</td>
+                <td className="border px-3 py-2">{mat.stockOut}</td>
+                <td className="border px-3 py-2">{mat.balance}</td>
+                <td className="border px-3 py-2">{mat.remarks}</td>
+                <td className="border px-3 py-2">{mat.requisitionNumber}</td>
+                <td className="border px-3 py-2">{mat.storeKeeper}</td>
+                <td className="border px-3 py-2">{mat.supervisor}</td>
+                <td className="border px-3 py-2">{mat.batchNumber}</td>
+                <td className="border px-3 py-2">{mat.location}</td>
+                <td className="border px-3 py-2 space-x-2">
+                  <button onClick={() => handleEdit(mat)} className="bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded text-sm">Edit</button>
+                  <button onClick={() => handleDelete(mat._id)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">Delete</button>
+                </td>
+              </tr>
+            ))}
+
+            {/* Totals row */}
+            {rawMaterials.length > 0 && (
+              <tr className="bg-blue-100 font-semibold">
+                <td className="border px-3 py-2 text-right">Totals:</td>
+                <td className="border px-3 py-2">{totals.openingBalance}</td>
+                <td className="border px-3 py-2">{totals.newStock}</td>
+                <td className="border px-3 py-2">{totals.totalStock}</td>
+                <td className="border px-3 py-2">{totals.stockOut}</td>
+                <td className="border px-3 py-2">{totals.balance}</td>
+                <td className="border px-3 py-2" colSpan="7"></td>
+              </tr>
+            )}
+
+            {rawMaterials.length === 0 && (
+              <tr>
+                <td colSpan="13" className="text-center py-4 text-gray-500">
+                  No records found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
