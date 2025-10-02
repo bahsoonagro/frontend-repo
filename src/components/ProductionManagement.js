@@ -1,5 +1,6 @@
 // src/components/ProductionManagement.js
 import React, { useState } from "react";
+import ProductionManagement from "../components/ProductionManagement";
 
 export default function ProductionManagement() {
   // Scoped state to avoid conflicts
