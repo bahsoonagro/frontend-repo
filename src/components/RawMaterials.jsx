@@ -133,8 +133,8 @@ export default function RawMaterial() {
     doc.autoTable({
       startY: 20,
       head: [[
-        "DATE","OPENING BAL","NEW STOCK","TOTAL STOCK","STOCK OUT","BALANCE",
-        "REMARKS","REQUISITION NUMBER","STORE KEEPER","SUPERVISOR","BATCH","LOCATION"
+                "Date", "Opening Qty", "New Stock", "Total Stock", "Stock Out", "Balance", "Remarks", "REQ No", "Store Keeper", "Supervisor", "Batch", "Location"
+
       ]],
       body: materials.map(m => [
         new Date(m.date).toLocaleDateString(),
