@@ -5,7 +5,7 @@ import RawMaterials from "./components/RawMaterials";
 import StockMovements from "./components/StockMovements";
 import FinishedProducts from "./components/FinishedProducts";
 import DispatchDelivery from "./components/DispatchDelivery";
-//import StockManagement from "./pages/StockManagement";
+import ProductionManagement from "./components/ProductionManagement";
 import Reports from "./components/Reports";
 
 const tabs = [
