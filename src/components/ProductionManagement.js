@@ -1,8 +1,9 @@
+// src/components/ProductionManagement.js
 import React, { useState } from "react";
 
 export default function ProductionManagement() {
-  // Batch Info
-  const [batch, setBatch] = useState({
+  // Scoped state to avoid conflicts
+  const [prodBatch, setProdBatch] = useState({
     id: "BATCH001",
     date: new Date().toISOString().split("T")[0],
     client: "Demo Client",
@@ -10,16 +11,14 @@ export default function ProductionManagement() {
     plannedTons: 1,
   });
 
-  // Ingredients
-  const [ingredients, setIngredients] = useState([
+  const [prodIngredients, setProdIngredients] = useState([
     { name: "Sorghum", base: 750, extra: 100, gross: 850 },
     { name: "Sesame", base: 50, extra: 0, gross: 50 },
     { name: "Sugar", base: 50, extra: 0, gross: 50 },
     { name: "Pigeon Peas", base: 150, extra: 50, gross: 200 },
   ]);
 
-  // Departments
-  const [departments, setDepartments] = useState([
+  const [prodDepartments, setProdDepartments] = useState([
     { name: "Store", input: 1150, output: 1140 },
     { name: "Cleaning", input: 1140, output: 1120 },
     { name: "Scorching", input: 1120, output: 1100 },
@@ -29,16 +28,19 @@ export default function ProductionManagement() {
   ]);
 
   // Calculations
-  const finalOutput = departments[departments.length - 1].output;
-  const plannedKg = batch.plannedTons * 1000;
+  const finalOutput = prodDepartments[prodDepartments.length - 1].output;
+  const plannedKg = prodBatch.plannedTons * 1000;
   const yieldPercent = ((finalOutput / plannedKg) * 100).toFixed(2);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gray-50 rounded-xl shadow">
       {/* Batch Info */}
       <div className="bg-blue-100 p-4 rounded-xl shadow">
         <h2 className="text-xl font-bold">Batch Setup</h2>
-        <p>ID: {batch.id} | Product: {batch.product} | Planned: {batch.plannedTons} MT | Client: {batch.client}</p>
+        <p>
+          ID: {prodBatch.id} | Product: {prodBatch.product} | Planned:{" "}
+          {prodBatch.plannedTons} MT | Client: {prodBatch.client}
+        </p>
       </div>
 
       {/* Raw Materials */}
@@ -47,11 +49,14 @@ export default function ProductionManagement() {
         <table className="table-auto w-full border mt-2">
           <thead>
             <tr className="bg-green-300">
-              <th>Ingredient</th><th>Base (kg)</th><th>Extra (kg)</th><th>Gross Input (kg)</th>
+              <th>Ingredient</th>
+              <th>Base (kg)</th>
+              <th>Extra (kg)</th>
+              <th>Gross Input (kg)</th>
             </tr>
           </thead>
           <tbody>
-            {ingredients.map((ing, i) => (
+            {prodIngredients.map((ing, i) => (
               <tr key={i} className="border">
                 <td>{ing.name}</td>
                 <td>{ing.base}</td>
@@ -69,11 +74,14 @@ export default function ProductionManagement() {
         <table className="table-auto w-full border mt-2">
           <thead>
             <tr className="bg-yellow-300">
-              <th>Department</th><th>Input (kg)</th><th>Output (kg)</th><th>Loss (kg)</th>
+              <th>Department</th>
+              <th>Input (kg)</th>
+              <th>Output (kg)</th>
+              <th>Loss (kg)</th>
             </tr>
           </thead>
           <tbody>
-            {departments.map((dept, i) => (
+            {prodDepartments.map((dept, i) => (
               <tr key={i} className="border">
                 <td>{dept.name}</td>
                 <td>{dept.input}</td>
