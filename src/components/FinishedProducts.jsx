@@ -37,7 +37,7 @@ export default function FinishedProducts() {
   const [products, setProducts] = useState([]);
   const printRef = useRef();
 
-  // Fetch all finished products from backend
+  // Fetch all finished products
   const fetchProducts = async () => {
     try {
       const res = await fetch(API_URL);
@@ -52,25 +52,50 @@ export default function FinishedProducts() {
     fetchProducts();
   }, []);
 
+  // Handle form changes and auto-calculate totalStock & balance
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      let updated = { ...prev, [name]: value };
+
+      // Convert numeric fields to numbers for calculation
+      const opening = parseFloat(updated.openingQty) || 0;
+      const newS = parseFloat(updated.newStock) || 0;
+      const qtyOut = parseFloat(updated.qtyOut) || 0;
+
+      updated.totalStock = opening + newS;
+      updated.balance = updated.totalStock - qtyOut;
+
+      return updated;
+    });
   };
 
+  // Save product
   const handleSave = async () => {
-    const requiredFields = ["productName", "batchNumber", "productionDate", "openingQty", "newStock", "totalStock", "qtyOut", "balance"];
+    const requiredFields = ["productName", "batchNumber", "productionDate"];
     for (let field of requiredFields) {
-      if (!formData[field]) return alert("All required fields must be filled!");
+      if (!formData[field]) return alert("Please fill all required fields!");
     }
 
     try {
+      const payload = {
+        ...formData,
+        openingQty: parseFloat(formData.openingQty) || 0,
+        newStock: parseFloat(formData.newStock) || 0,
+        totalStock: parseFloat(formData.totalStock) || 0,
+        qtyOut: parseFloat(formData.qtyOut) || 0,
+        balance: parseFloat(formData.balance) || 0,
+        productionDate: new Date(formData.productionDate)
+      };
+
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, productionDate: new Date(formData.productionDate) }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+
       setProducts([...products, data]);
       setFormData({
         productName: "", batchNumber: "", productionDate: "",
@@ -81,6 +106,7 @@ export default function FinishedProducts() {
     }
   };
 
+  // Delete product
   const handleDelete = async (id) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
@@ -90,6 +116,7 @@ export default function FinishedProducts() {
     }
   };
 
+  // Export Excel
   const exportExcel = () => {
     const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
     const ws = XLSX.utils.json_to_sheet(filtered.map(p => ({
@@ -108,6 +135,7 @@ export default function FinishedProducts() {
     XLSX.writeFile(wb, "FinishedProducts.xlsx");
   };
 
+  // Export PDF
   const exportPDF = () => {
     const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
     const doc = new jsPDF();
@@ -132,6 +160,7 @@ export default function FinishedProducts() {
     doc.save("FinishedProducts.pdf");
   };
 
+  // Print table
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
@@ -185,7 +214,7 @@ export default function FinishedProducts() {
           </Grid>
           <Grid item xs={6} sm={2}>
             <TextField name="totalStock" label="Total Stock" type="number" size="small"
-              value={formData.totalStock} onChange={handleChange} fullWidth />
+              value={formData.totalStock} InputProps={{ readOnly: true }} fullWidth />
           </Grid>
           <Grid item xs={6} sm={2}>
             <TextField name="qtyOut" label="Qty Out" type="number" size="small"
@@ -193,7 +222,7 @@ export default function FinishedProducts() {
           </Grid>
           <Grid item xs={6} sm={2}>
             <TextField name="balance" label="Balance" type="number" size="small"
-              value={formData.balance} onChange={handleChange} fullWidth />
+              value={formData.balance} InputProps={{ readOnly: true }} fullWidth />
           </Grid>
           <Grid item xs={12} sm={4}>
             <TextField name="remarks" label="Remarks" size="small"
@@ -235,7 +264,7 @@ export default function FinishedProducts() {
             <tbody>
               <AnimatePresence>
                 {filteredProducts.map((prod) => (
-                  <motion.tr key={prod.batchNumber} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <td style={tdStyle}>{prod.batchNumber}</td>
                     <td style={tdStyle}>{new Date(prod.productionDate).toLocaleDateString()}</td>
                     <td style={tdStyle}>{prod.productName}</td>
