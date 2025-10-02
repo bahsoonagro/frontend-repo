@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Box, Button, Grid, TextField, Select, MenuItem,
-  InputLabel, FormControl, Paper, Typography, IconButton, Tabs, Tab, Tooltip
+  InputLabel, FormControl, Paper, Typography, IconButton, Tabs, Tab, Tooltip, Snackbar, Alert
 } from "@mui/material";
 import { Delete, Print, FileDownload } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,7 +35,12 @@ export default function FinishedProducts() {
     remarks: "",
   });
   const [products, setProducts] = useState([]);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState("");
   const printRef = useRef();
+
+  // Monthly/week rows (for demonstration)
+  const [rowsSummary, setRowsSummary] = useState([]);
 
   // Fetch all finished products
   const fetchProducts = async () => {
@@ -43,14 +48,29 @@ export default function FinishedProducts() {
       const res = await fetch(API_URL);
       const data = await res.json();
       setProducts(data);
+
+      // Build summary rows (month/week) for demo
+      const summaryRows = data.map(p => ({
+        month: new Date(p.productionDate).toLocaleString('default', { month: 'long' }),
+        week: `Week ${Math.ceil(new Date(p.productionDate).getDate() / 7)}`,
+        date: p.productionDate,
+        rows: [{
+          productName: p.productName,
+          stockRef: p.batchNumber,
+          openingStock: p.openingQty,
+          stockIn: p.newStock,
+          stockOut: p.qtyOut,
+          totalQuantity: p.totalStock
+        }]
+      }));
+      setRowsSummary(summaryRows);
+
     } catch (err) {
       console.error("Fetch error:", err);
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
   // Handle form changes and auto-calculate totalStock & balance
   const handleChange = (e) => {
@@ -85,7 +105,7 @@ export default function FinishedProducts() {
         totalStock: parseFloat(formData.totalStock) || 0,
         qtyOut: parseFloat(formData.qtyOut) || 0,
         balance: parseFloat(formData.balance) || 0,
-        productionDate: new Date(formData.productionDate)
+        productionDate: formData.productionDate
       };
 
       const res = await fetch(API_URL, {
@@ -96,23 +116,50 @@ export default function FinishedProducts() {
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
 
-      setProducts([...products, data]);
+      console.log("Saved product:", data);
+      setProducts(prev => [data, ...prev]);
       setFormData({
         productName: "", batchNumber: "", productionDate: "",
         openingQty: "", newStock: "", totalStock: "", qtyOut: "", balance: "", remarks: ""
       });
+
+      // Show success toast
+      setSnackbarMsg("Product saved successfully!");
+      setSnackbarOpen(true);
+
+      // Update rows summary
+      const summaryRow = {
+        month: new Date(data.productionDate).toLocaleString('default', { month: 'long' }),
+        week: `Week ${Math.ceil(new Date(data.productionDate).getDate() / 7)}`,
+        date: data.productionDate,
+        rows: [{
+          productName: data.productName,
+          stockRef: data.batchNumber,
+          openingStock: data.openingQty,
+          stockIn: data.newStock,
+          stockOut: data.qtyOut,
+          totalQuantity: data.totalStock
+        }]
+      };
+      setRowsSummary(prev => [summaryRow, ...prev]);
+
     } catch (err) {
       console.error("Save error:", err.message);
+      setSnackbarMsg("Error saving product!");
+      setSnackbarOpen(true);
     }
   };
 
-  // Delete product
   const handleDelete = async (id) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setProducts(products.filter(p => p._id !== id));
+      setProducts(prev => prev.filter(p => p._id !== id));
+      setSnackbarMsg("Product deleted successfully!");
+      setSnackbarOpen(true);
     } catch (err) {
       console.error("Delete error:", err.message);
+      setSnackbarMsg("Error deleting product!");
+      setSnackbarOpen(true);
     }
   };
 
@@ -120,7 +167,7 @@ export default function FinishedProducts() {
   const exportExcel = () => {
     const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
     const ws = XLSX.utils.json_to_sheet(filtered.map(p => ({
-      "Date": new Date(p.productionDate).toLocaleDateString(),
+      "Date": p.productionDate,
       "Batch Number": p.batchNumber,
       "Product Name": p.productName,
       "Opening Qty": p.openingQty,
@@ -144,15 +191,7 @@ export default function FinishedProducts() {
       startY: 20,
       head: [["Date","Batch Number","Product Name","Opening Qty","New Stock","Total Stock","Qty Out","Balance","Remarks"]],
       body: filtered.map(p => [
-        new Date(p.productionDate).toLocaleDateString(),
-        p.batchNumber,
-        p.productName,
-        p.openingQty,
-        p.newStock,
-        p.totalStock,
-        p.qtyOut,
-        p.balance,
-        p.remarks
+        p.productionDate, p.batchNumber, p.productName, p.openingQty, p.newStock, p.totalStock, p.qtyOut, p.balance, p.remarks
       ]),
       theme: "grid",
       headStyles: { fillColor: [25, 118, 210], textColor: 255 },
@@ -197,42 +236,16 @@ export default function FinishedProducts() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={6} sm={3}>
-            <TextField name="batchNumber" label="Batch Number" size="small" value={formData.batchNumber} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <TextField name="productionDate" label="Production Date" type="date" size="small"
-              value={formData.productionDate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField name="openingQty" label="Opening Qty" type="number" size="small"
-              value={formData.openingQty} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField name="newStock" label="New Stock" type="number" size="small"
-              value={formData.newStock} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField name="totalStock" label="Total Stock" type="number" size="small"
-              value={formData.totalStock} InputProps={{ readOnly: true }} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField name="qtyOut" label="Qty Out" type="number" size="small"
-              value={formData.qtyOut} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={6} sm={2}>
-            <TextField name="balance" label="Balance" type="number" size="small"
-              value={formData.balance} InputProps={{ readOnly: true }} fullWidth />
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <TextField name="remarks" label="Remarks" size="small"
-              value={formData.remarks} onChange={handleChange} fullWidth />
-          </Grid>
-          <Grid item xs={12}>
-            <Button variant="contained" color="success" onClick={handleSave}>
-              Save Product
-            </Button>
-          </Grid>
+          <Grid item xs={6} sm={3}><TextField name="batchNumber" label="Batch Number" size="small" value={formData.batchNumber} onChange={handleChange} fullWidth /></Grid>
+          <Grid item xs={6} sm={3}><TextField name="productionDate" label="Production Date" type="date" size="small"
+            value={formData.productionDate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={6} sm={2}><TextField name="openingQty" label="Opening Qty" type="number" size="small" value={formData.openingQty} onChange={handleChange} fullWidth /></Grid>
+          <Grid item xs={6} sm={2}><TextField name="newStock" label="New Stock" type="number" size="small" value={formData.newStock} onChange={handleChange} fullWidth /></Grid>
+          <Grid item xs={6} sm={2}><TextField name="totalStock" label="Total Stock" type="number" size="small" value={formData.totalStock} InputProps={{ readOnly: true }} fullWidth /></Grid>
+          <Grid item xs={6} sm={2}><TextField name="qtyOut" label="Qty Out" type="number" size="small" value={formData.qtyOut} onChange={handleChange} fullWidth /></Grid>
+          <Grid item xs={6} sm={2}><TextField name="balance" label="Balance" type="number" size="small" value={formData.balance} InputProps={{ readOnly: true }} fullWidth /></Grid>
+          <Grid item xs={12} sm={4}><TextField name="remarks" label="Remarks" size="small" value={formData.remarks} onChange={handleChange} fullWidth /></Grid>
+          <Grid item xs={12}><Button variant="contained" color="success" onClick={handleSave}>Save Product</Button></Grid>
         </Grid>
       </Paper>
 
@@ -266,7 +279,7 @@ export default function FinishedProducts() {
                 {filteredProducts.map((prod) => (
                   <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <td style={tdStyle}>{prod.batchNumber}</td>
-                    <td style={tdStyle}>{new Date(prod.productionDate).toLocaleDateString()}</td>
+                    <td style={tdStyle}>{prod.productionDate}</td>
                     <td style={tdStyle}>{prod.productName}</td>
                     <td style={tdStyle}>{prod.openingQty}</td>
                     <td style={tdStyle}>{prod.newStock}</td>
@@ -276,9 +289,7 @@ export default function FinishedProducts() {
                     <td style={tdStyle}>{prod.remarks}</td>
                     <td style={tdStyle}>
                       <Tooltip title="Delete">
-                        <IconButton color="error" size="small" onClick={() => handleDelete(prod._id)}>
-                          <Delete />
-                        </IconButton>
+                        <IconButton color="error" size="small" onClick={() => handleDelete(prod._id)}><Delete /></IconButton>
                       </Tooltip>
                     </td>
                   </motion.tr>
@@ -293,6 +304,13 @@ export default function FinishedProducts() {
           </table>
         </Paper>
       </Box>
+
+      {/* Snackbar */}
+      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
+          {snackbarMsg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
