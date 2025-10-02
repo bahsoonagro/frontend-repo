@@ -108,18 +108,18 @@ export default function RawMaterial() {
   // Export Excel
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(materials.map(m => ({
-      "DATE": new Date(m.date).toLocaleDateString(),
-      "OPENING BAL": m.openingBal,
-      "NEW STOCK": m.newStock,
-      "TOTAL STOCK": m.totalStock,
-      "STOCK OUT": m.stockOut,
-      "BALANCE": m.balance,
-      "REMARKS": m.remarks,
-      "REQUISITION NUMBER": m.requisitionNumber,
-      "STORE KEEPER": m.storeKeeper,
-      "SUPERVISOR": m.supervisor,
-      "BATCH": m.batchNumber,
-      "LOCATION": m.location
+      "Date": new Date(m.date).toLocaleDateString(),
+      "Opening Qty": m.openingBal,
+      "New Stock": m.newStock,
+      "Total Stock": m.totalStock,
+      "Stock Out": m.stockOut,
+      "Balance": m.balance,
+      "Remarks": m.remarks,
+      "REQ No": m.requisitionNumber,
+      "Store Keeper": m.storeKeeper,
+      "Supervisor": m.supervisor,
+      "Batch": m.batchNumber,
+      "Location": m.location
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
