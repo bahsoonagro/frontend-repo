@@ -105,7 +105,7 @@ export default function FinishedProducts() {
         totalStock: parseFloat(formData.totalStock) || 0,
         qtyOut: parseFloat(formData.qtyOut) || 0,
         balance: parseFloat(formData.balance) || 0,
-        productionDate: formData.productionDate
+        date: formData.productionDate
       };
 
       const res = await fetch(API_URL, {
