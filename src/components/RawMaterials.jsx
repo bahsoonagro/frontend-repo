@@ -1,298 +1,318 @@
-// RawMaterials.jsx
-import React, { useEffect, useState } from "react";
+// src/components/RawMaterials.jsx
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Box,
+  Button,
+  Grid,
+  TextField,
+  Paper,
+  Typography,
+  IconButton,
+  Tabs,
+  Tab,
+} from "@mui/material";
+import { Delete, Print, Add, Remove } from "@mui/icons-material";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
+import * as XLSX from "xlsx";
 
-const MATERIAL_TABS = ["Sorghum", "Pigeon Peas", "Sesame Seeds", "Rice", "Sugar"];
+const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
+const LPO_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials/lpo";
 
-const RawMaterials = () => {
-  const [activeTab, setActiveTab] = useState("Sorghum");
-  const [rawMaterials, setRawMaterials] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+const RAW_MATERIALS_TABS = ["Sorghum", "Sesame Seeds", "Pigeon Peas", "Rice", "Sugar"];
+
+const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+
+export default function RawMaterials() {
+  const [currentTab, setCurrentTab] = useState(0);
+  const [materials, setMaterials] = useState([]);
   const [formData, setFormData] = useState({
-    date: "",
+    rawMaterialType: RAW_MATERIALS_TABS[0],
+    supplierName: "",
+    supplierPhone: "",
+    supplierBags: "",
+    extraKg: "",
     storeKeeper: "",
     supervisor: "",
     location: "",
+    date: "",
     batchNumber: "",
-    openingBalance: "",
-    newStock: "",
-    totalStock: "",
-    stockOut: "",
-    balance: "",
-    remarks: "",
-    requisitionNumber: "",
-    productName: "Sorghum",
   });
   const [step, setStep] = useState(1);
+  const printRef = useRef();
 
-  // Load records by tab
+  // LPO state
+  const [lpoStep, setLpoStep] = useState(1);
+  const [lpoItems, setLpoItems] = useState([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const [lpoData, setLpoData] = useState({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+
   useEffect(() => {
-    fetchRawMaterials();
-  }, [activeTab]);
+    fetchMaterials();
+  }, []);
 
-  const fetchRawMaterials = async () => {
+  const fetchMaterials = async () => {
     try {
-      const res = await axios.get("/api/rawmaterials");
-      setRawMaterials(res.data.filter((item) => item.productName === activeTab));
-    } catch (error) {
-      console.error("Error fetching raw materials:", error);
+      const res = await axios.get(API_URL);
+      setMaterials(res.data);
+    } catch (err) {
+      console.error(err.response?.data || err.message);
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    let updated = { ...formData, [name]: value, productName: activeTab };
-
-    if (name === "openingBalance" || name === "newStock") {
-      const opening = parseFloat(
-        name === "openingBalance" ? value : updated.openingBalance
-      ) || 0;
-      const newS = parseFloat(
-        name === "newStock" ? value : updated.newStock
-      ) || 0;
-      updated.totalStock = opening + newS;
-      updated.balance = updated.totalStock - (parseFloat(updated.stockOut) || 0);
-    }
-
-    if (name === "stockOut") {
-      const total = parseFloat(updated.totalStock) || 0;
-      const out = parseFloat(value) || 0;
-      updated.balance = total - out;
-    }
-
-    setFormData(updated);
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.date || !formData.storeKeeper || !formData.supervisor) {
-      alert("Please complete all required fields");
-      return;
-    }
+  const bagsAfterStd = Math.floor(formData.supplierBags || 0);
+  const totalWeight = bagsAfterStd * 50 + Number(formData.extraKg || 0);
+
+  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
+  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
+
+  const handleSaveMaterial = async () => {
     try {
-      if (editingId) {
-        await axios.put(`/api/rawmaterials/${editingId}`, formData);
-      } else {
-        await axios.post("/api/rawmaterials", formData);
-      }
-      fetchRawMaterials();
-      resetForm();
-    } catch (error) {
-      console.error("Save error:", error.response?.data || error);
-      alert("Failed to save record");
+      const newEntry = { ...formData, bagsAfterStd, totalWeight };
+      const res = await axios.post(API_URL, newEntry);
+      setMaterials([...materials, res.data]);
+      setFormData({ ...formData, supplierName: "", supplierPhone: "", supplierBags: "", extraKg: "", storeKeeper: "", supervisor: "", location: "", date: "", batchNumber: "" });
+      setStep(1);
+    } catch (err) {
+      console.error(err.response?.data || err.message);
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      date: "",
-      storeKeeper: "",
-      supervisor: "",
-      location: "",
-      batchNumber: "",
-      openingBalance: "",
-      newStock: "",
-      totalStock: "",
-      stockOut: "",
-      balance: "",
-      remarks: "",
-      requisitionNumber: "",
-      productName: activeTab,
-    });
-    setEditingId(null);
-    setStep(1);
-  };
-
-  const handleEdit = (mat) => {
-    setFormData({
-      date: mat.date ? mat.date.split("T")[0] : "",
-      storeKeeper: mat.storeKeeper || "",
-      supervisor: mat.supervisor || "",
-      location: mat.location || "",
-      batchNumber: mat.batchNumber || "",
-      openingBalance: mat.openingBalance || "",
-      newStock: mat.newStock || "",
-      totalStock: mat.totalStock || "",
-      stockOut: mat.stockOut || "",
-      balance: mat.balance || "",
-      remarks: mat.remarks || "",
-      requisitionNumber: mat.requisitionNumber || "",
-      productName: activeTab,
-    });
-    setEditingId(mat._id);
-    setStep(1);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
+  const handleDeleteMaterial = async (id) => {
     try {
-      await axios.delete(`/api/rawmaterials/${id}`);
-      fetchRawMaterials();
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert("Failed to delete record");
+      await axios.delete(`${API_URL}/${id}`);
+      setMaterials(materials.filter((m) => m._id !== id));
+    } catch (err) {
+      console.error(err.response?.data || err.message);
     }
   };
 
-  // --- Totals calculation ---
-  const totals = rawMaterials.reduce(
-    (acc, mat) => {
-      acc.openingBalance += Number(mat.openingBalance) || 0;
-      acc.newStock += Number(mat.newStock) || 0;
-      acc.totalStock += Number(mat.totalStock) || 0;
-      acc.stockOut += Number(mat.stockOut) || 0;
-      acc.balance += Number(mat.balance) || 0;
-      return acc;
-    },
-    { openingBalance: 0, newStock: 0, totalStock: 0, stockOut: 0, balance: 0 }
-  );
+  const calculateTotals = (filtered) =>
+    filtered.reduce(
+      (acc, m) => {
+        acc.bagsAfterStd += Number(m.bagsAfterStd || 0);
+        acc.totalWeight += Number(m.totalWeight || 0);
+        return acc;
+      },
+      { bagsAfterStd: 0, totalWeight: 0 }
+    );
+
+  const handlePrintTable = () => {
+    const printContent = printRef.current.innerHTML;
+    const WinPrint = window.open("", "", "width=900,height=650");
+    WinPrint.document.write("<html><head><title>Raw Materials Inventory</title>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;} tr:hover{background-color:#e3f2fd;}</style>");
+    WinPrint.document.write("</head><body>");
+    WinPrint.document.write(printContent);
+    WinPrint.document.write("</body></html>");
+    WinPrint.document.close();
+    WinPrint.focus();
+    WinPrint.print();
+  };
+
+  const exportTableToExcel = () => {
+    const filtered = materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]);
+    const ws = XLSX.utils.json_to_sheet(
+      filtered.map((m, i) => ({
+        "S/N": i + 1,
+        Date: new Date(m.date).toLocaleDateString(),
+        Material: m.rawMaterialType,
+        Supplier: m.supplierName,
+        "Bags After Std": m.bagsAfterStd,
+        "Total Weight (kg)": m.totalWeight,
+        "Batch Number": m.batchNumber,
+        "Store Keeper": m.storeKeeper,
+        Supervisor: m.supervisor,
+        Location: m.location,
+      }))
+    );
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
+    XLSX.writeFile(wb, "RawMaterials.xlsx");
+  };
+
+  // LPO Handlers
+  const handleLpoItemChange = (index, e) => {
+    const { name, value } = e.target;
+    const updatedItems = [...lpoItems];
+    updatedItems[index][name] = value;
+    setLpoItems(updatedItems);
+  };
+  const addLpoItem = () => setLpoItems([...lpoItems, { rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+  const removeLpoItem = (index) => setLpoItems(lpoItems.filter((_, i) => i !== index));
+  const handleLpoChange = (e) => {
+    const { name, value } = e.target;
+    setLpoData((prev) => ({ ...prev, [name]: value }));
+  };
+  const handleSaveLpo = async () => {
+    try {
+      const totalCost = lpoItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unitPrice || 0)), 0);
+      const payload = { ...lpoData, items: lpoItems, totalCost };
+      await axios.post(LPO_URL, payload);
+      setLpoItems([{ rawMaterialType: RAW_MATERIALS_TABS[0], quantity: "", unitPrice: "" }]);
+      setLpoData({ year: new Date().getFullYear(), supplier: "", payment: "", comments: "", fuelCost: 0, perDiem: 0, tollFee: 0, miscellaneous: 0 });
+      setLpoStep(1);
+      alert("LPO saved successfully!");
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+    }
+  };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6">Raw Materials Management</h2>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 4, color: "#1976d2" }}>Raw Materials & LPO Entry</Typography>
 
       {/* Tabs */}
-      <div className="flex space-x-3 mb-6">
-        {MATERIAL_TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              resetForm();
-            }}
-            className={`px-5 py-2 rounded-full font-semibold shadow-md transition ${
-              activeTab === tab
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      <Tabs value={currentTab} onChange={(e, val) => setCurrentTab(val)} sx={{ mb: 3 }}>
+        {RAW_MATERIALS_TABS.map((tab, i) => <Tab label={tab} key={i} />)}
+      </Tabs>
 
-      {/* Multi-step Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white shadow-lg rounded-xl p-6 mb-6 border"
-      >
+      {/* Raw Material Multi-Step Form */}
+      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         {step === 1 && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Step 1: General Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="date" name="date" value={formData.date} onChange={handleChange} className="border rounded-lg p-2" required />
-              <input type="text" name="storeKeeper" placeholder="Store Keeper" value={formData.storeKeeper} onChange={handleChange} className="border rounded-lg p-2" required />
-              <input type="text" name="supervisor" placeholder="Supervisor" value={formData.supervisor} onChange={handleChange} className="border rounded-lg p-2" required />
-              <input type="text" name="location" placeholder="Location" value={formData.location} onChange={handleChange} className="border rounded-lg p-2" />
-              <input type="text" name="batchNumber" placeholder="Batch Number" value={formData.batchNumber} onChange={handleChange} className="border rounded-lg p-2" />
-            </div>
-            <div className="flex justify-end mt-4">
-              <button type="button" onClick={() => setStep(2)} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow">
-                Next
-              </button>
-            </div>
-          </div>
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={4}><TextField label="Supplier Name" name="supplierName" value={formData.supplierName} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={4}><TextField label="Supplier Phone" name="supplierPhone" value={formData.supplierPhone} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Supplier Quantity (bags)" name="supplierBags" type="number" value={formData.supplierBags} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}><Button variant="contained" size="small" color="primary" onClick={handleNext}>Next →</Button></Grid>
+          </Grid>
         )}
-
         {step === 2 && (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Step 2: Stock Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="number" name="openingBalance" placeholder="Opening Balance" value={formData.openingBalance} onChange={handleChange} className="border rounded-lg p-2" />
-              <input type="number" name="newStock" placeholder="New Stock" value={formData.newStock} onChange={handleChange} className="border rounded-lg p-2" />
-              <input type="number" name="totalStock" placeholder="Total Stock" value={formData.totalStock} readOnly className="border rounded-lg p-2 bg-gray-100" />
-              <input type="number" name="stockOut" placeholder="Stock Out" value={formData.stockOut} onChange={handleChange} className="border rounded-lg p-2" />
-              <input type="number" name="balance" placeholder="Balance" value={formData.balance} readOnly className="border rounded-lg p-2 bg-gray-100" />
-              <input type="text" name="remarks" placeholder="Remarks" value={formData.remarks} onChange={handleChange} className="border rounded-lg p-2" />
-              <input type="text" name="requisitionNumber" placeholder="Requisition Number" value={formData.requisitionNumber} onChange={handleChange} className="border rounded-lg p-2" />
-            </div>
-
-            <div className="flex justify-between mt-4">
-              <button type="button" onClick={() => setStep(1)} className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg shadow">
-                Back
-              </button>
-              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow">
-                {editingId ? "Update" : "Save"}
-              </button>
-            </div>
-          </div>
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Extra Kg" name="extraKg" type="number" value={formData.extraKg} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Bags After Std" value={bagsAfterStd} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Total Weight (kg)" value={totalWeight} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={1}>
+              <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
+              <Button variant="contained" size="small" color="primary" onClick={handleNext}>Next →</Button>
+            </Grid>
+          </Grid>
         )}
-      </form>
+        {step === 3 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Store Keeper" name="storeKeeper" value={formData.storeKeeper} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Supervisor" name="supervisor" value={formData.supervisor} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Location" name="location" value={formData.location} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Batch Number" name="batchNumber" value={formData.batchNumber} onChange={handleChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between" gap={1}>
+              <Button variant="outlined" size="small" color="secondary" onClick={handlePrev}>← Previous</Button>
+              <Button variant="contained" size="small" color="success" onClick={handleSaveMaterial}>Save Material</Button>
+            </Grid>
+          </Grid>
+        )}
+      </Paper>
 
-      {/* Table */}
-      <h3 className="text-lg font-semibold mb-3">{activeTab} Records</h3>
-      <div className="overflow-x-auto shadow rounded-lg">
-        <table className="w-full border-collapse rounded-lg">
-          <thead>
-            <tr className="bg-gray-100 text-left">
-              {[
-                "Date",
-                "Opening Balance",
-                "New Stock",
-                "Total Stock",
-                "Stock Out",
-                "Balance",
-                "Remarks",
-                "Requisition Number",
-                "Store Keeper",
-                "Supervisor",
-                "Batch Number",
-                "Location",
-                "Actions",
-              ].map((col) => (
-                <th key={col} className="border px-3 py-2 font-semibold uppercase text-sm">
-                  {col}
-                </th>
+      {/* LPO Multi-Step Form */}
+      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1, color: "#1976d2" }}>Local Purchase Order (LPO)</Typography>
+
+        {lpoStep === 1 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}><TextField label="Supplier" name="supplier" value={lpoData.supplier} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={2}><TextField label="Year" name="year" value={lpoData.year} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={2}><TextField label="Payment" name="payment" value={lpoData.payment} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} md={3}><TextField label="Comments" name="comments" value={lpoData.comments} onChange={handleLpoChange} fullWidth size="small" /></Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end" gap={1}>
+              <Button variant="contained" size="small" color="primary" onClick={() => setLpoStep(2)}>Next →</Button>
+            </Grid>
+          </Grid>
+        )}
+
+        {lpoStep === 2 && (
+          <Box>
+            <AnimatePresence>
+              {lpoItems.map((item, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+                  <Grid container spacing={1} sx={{ mt: 1 }} alignItems="center">
+                    <Grid item xs={12} md={3}>
+                      <TextField select label="Material" name="rawMaterialType" value={item.rawMaterialType} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" SelectProps={{ native: true }}>
+                        {RAW_MATERIALS_TABS.map((tab, j) => <option value={tab} key={j}>{tab}</option>)}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={2}><TextField label="Quantity" name="quantity" type="number" value={item.quantity} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
+                    <Grid item xs={12} md={2}><TextField label="Unit Price" name="unitPrice" type="number" value={item.unitPrice} onChange={(e) => handleLpoItemChange(i, e)} fullWidth size="small" /></Grid>
+                    <Grid item xs={12} md={2}><IconButton color="error" size="small" onClick={() => removeLpoItem(i)}><Remove /></IconButton></Grid>
+                  </Grid>
+                </motion.div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rawMaterials.map((mat, idx) => (
-              <tr key={mat._id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                <td className="border px-3 py-2">{new Date(mat.date).toLocaleDateString()}</td>
-                <td className="border px-3 py-2">{mat.openingBalance}</td>
-                <td className="border px-3 py-2">{mat.newStock}</td>
-                <td className="border px-3 py-2">{mat.totalStock}</td>
-                <td className="border px-3 py-2">{mat.stockOut}</td>
-                <td className="border px-3 py-2">{mat.balance}</td>
-                <td className="border px-3 py-2">{mat.remarks}</td>
-                <td className="border px-3 py-2">{mat.requisitionNumber}</td>
-                <td className="border px-3 py-2">{mat.storeKeeper}</td>
-                <td className="border px-3 py-2">{mat.supervisor}</td>
-                <td className="border px-3 py-2">{mat.batchNumber}</td>
-                <td className="border px-3 py-2">{mat.location}</td>
-                <td className="border px-3 py-2 space-x-2">
-                  <button onClick={() => handleEdit(mat)} className="bg-yellow-400 hover:bg-yellow-500 px-2 py-1 rounded text-sm">Edit</button>
-                  <button onClick={() => handleDelete(mat._id)} className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">Delete</button>
-                </td>
-              </tr>
-            ))}
+            </AnimatePresence>
+            <Button startIcon={<Add />} sx={{ mt: 1 }} size="small" onClick={addLpoItem}>Add Item</Button>
 
-            {/* Totals row */}
-            {rawMaterials.length > 0 && (
-              <tr className="bg-blue-100 font-semibold">
-                <td className="border px-3 py-2 text-right">Totals:</td>
-                <td className="border px-3 py-2">{totals.openingBalance}</td>
-                <td className="border px-3 py-2">{totals.newStock}</td>
-                <td className="border px-3 py-2">{totals.totalStock}</td>
-                <td className="border px-3 py-2">{totals.stockOut}</td>
-                <td className="border px-3 py-2">{totals.balance}</td>
-                <td className="border px-3 py-2" colSpan="7"></td>
-              </tr>
-            )}
+            <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between" }}>
+              <Button variant="outlined" size="small" color="secondary" onClick={() => setLpoStep(1)}>← Previous</Button>
+              <Button variant="contained" size="small" color="success" onClick={handleSaveLpo}>Save LPO</Button>
+            </Box>
+          </Box>
+        )}
+      </Paper>
 
-            {rawMaterials.length === 0 && (
+      {/* Table Section */}
+      <Box ref={printRef} sx={{ mt: 3 }}>
+        <Box display="flex" justifyContent="flex-end" gap={2} mb={1}>
+          <Button variant="outlined" startIcon={<Print />} onClick={handlePrintTable}>Print Table</Button>
+          <Button variant="outlined" onClick={exportTableToExcel}>Export Excel</Button>
+        </Box>
+
+        <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <td colSpan="13" className="text-center py-4 text-gray-500">
-                  No records found
-                </td>
+                <th style={thStyle}>S/N</th>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Material</th>
+                <th style={thStyle}>Supplier</th>
+                <th style={thStyle}>Bags After Std</th>
+                <th style={thStyle}>Total Weight (kg)</th>
+                <th style={thStyle}>Batch Number</th>
+                <th style={thStyle}>Store Keeper</th>
+                <th style={thStyle}>Supervisor</th>
+                <th style={thStyle}>Location</th>
+                <th style={thStyle}>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab])
+                  .map((m, i) => (
+                  <motion.tr key={m._id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} whileHover={{ backgroundColor: "#e3f2fd" }} transition={{ duration: 0.3 }}>
+                    <td style={tdStyle}>{i + 1}</td>
+                    <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
+                    <td style={tdStyle}>{m.rawMaterialType}</td>
+                    <td style={tdStyle}>{m.supplierName}</td>
+                    <td style={tdStyle}>{m.bagsAfterStd}</td>
+                    <td style={tdStyle}>{m.totalWeight}</td>
+                    <td style={tdStyle}>{m.batchNumber}</td>
+                    <td style={tdStyle}>{m.storeKeeper}</td>
+                    <td style={tdStyle}>{m.supervisor}</td>
+                    <td style={tdStyle}>{m.location}</td>
+                    <td style={tdStyle}><IconButton color="error" size="small" onClick={() => handleDeleteMaterial(m._id)}><Delete /></IconButton></td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+            <tfoot style={{ fontWeight: "bold", backgroundColor: "#e0e0e0" }}>
+              <tr>
+                <td style={tdStyle} colSpan={4}>Totals</td>
+                {(() => {
+                  const totals = calculateTotals(materials.filter((m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]));
+                  return (
+                    <>
+                      <td style={tdStyle}>{totals.bagsAfterStd}</td>
+                      <td style={tdStyle}>{totals.totalWeight}</td>
+                      <td style={tdStyle} colSpan={5}></td>
+                    </>
+                  );
+                })()}
+              </tr>
+            </tfoot>
+          </table>
+        </Paper>
+      </Box>
+    </Box>
   );
-};
-
-export default RawMaterials;
+}
