@@ -220,23 +220,24 @@ export default function RawMaterial() {
       <Box ref={printRef}>
         <Paper elevation={3} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
-              <tr>
-                <th style={thStyle}>DATE</th>
-                <th style={thStyle}>OPENING BAL</th>
-                <th style={thStyle}>NEW STOCK</th>
-                <th style={thStyle}>TOTAL STOCK</th>
-                <th style={thStyle}>STOCK OUT</th>
-                <th style={thStyle}>BALANCE</th>
-                <th style={thStyle}>REMARKS</th>
-                <th style={thStyle}>REQUISITION NUMBER</th>
-                <th style={thStyle}>STORE KEEPER</th>
-                <th style={thStyle}>SUPERVISOR</th>
-                <th style={thStyle}>BATCH</th>
-                <th style={thStyle}>LOCATION</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
+           <thead>
+  <tr className="bg-gray-100">
+    <th className="px-4 py-2">Date</th>
+    <th className="px-4 py-2">Opening bal</th>
+    <th className="px-4 py-2">New stock</th>
+    <th className="px-4 py-2">Total stock</th>
+    <th className="px-4 py-2">Stock out</th>
+    <th className="px-4 py-2">Balance</th>
+    <th className="px-4 py-2">Remarks</th>
+    <th className="px-4 py-2">Requisition number</th>
+    <th className="px-4 py-2">Store keeper</th>
+    <th className="px-4 py-2">Supervisor</th>
+    <th className="px-4 py-2">Batch number</th>
+    <th className="px-4 py-2">Location</th>
+    <th className="px-4 py-2">Actions</th>
+  </tr>
+</thead>
+
             <tbody>
               <AnimatePresence>
                 {materials.map((mat) => (
