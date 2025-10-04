@@ -84,17 +84,18 @@ export default function RawMaterials() {
         supervisor: formData.supervisor,
       };
 
+      let res;
       if (editId) {
-        await axios.put(`${API_URL}/${editId}`, payload);
+        res = await axios.put(`${API_URL}/${editId}`, payload);
+        setMaterials((prev) =>
+          prev.map((m) => (m._id === editId ? res.data : m))
+        );
         setEditId(null);
       } else {
-        await axios.post(API_URL, payload);
+        res = await axios.post(API_URL, payload);
+        setMaterials((prev) => [...prev, res.data]);
       }
 
-      // Always re-fetch materials to refresh table
-      await fetchMaterials();
-
-      // Reset form
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -110,6 +111,7 @@ export default function RawMaterials() {
         supervisor: "",
       });
       setStep(1);
+
     } catch (err) {
       console.error(err.response?.data || err.message);
       alert("Error saving material. Check required fields.");
@@ -133,16 +135,12 @@ export default function RawMaterials() {
     });
     setEditId(m._id);
     setStep(1);
-    // Switch tab if the material belongs to another type
-    const tabIndex = RAW_MATERIALS_TABS.indexOf(m.rawMaterialType);
-    if (tabIndex >= 0) setCurrentTab(tabIndex);
   };
 
   const handleDelete = async (id) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      // Refresh table after delete
-      await fetchMaterials();
+      setMaterials((prev) => prev.filter((m) => m._id !== id));
     } catch (err) {
       console.error(err.response?.data || err.message);
     }
