@@ -1,56 +1,35 @@
-// src/components/RawMaterials.jsx
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React from "react";
 
-const API_URL = "https://backend-repo-ydwt.onrender.com/api/raw-materials";
-
-export default function RawMaterialsTest() {
-  const [materials, setMaterials] = useState([]);
-
-  useEffect(() => {
-    const fetchMaterials = async () => {
-      try {
-        const res = await axios.get(API_URL);
-        console.log("API response:", res.data); // <-- check structure here
-        setMaterials(res.data); 
-      } catch (err) {
-        console.error(err.response?.data || err.message);
-      }
-    };
-
-    fetchMaterials();
-  }, []);
-
-  if (!materials.length) return <p>No data found.</p>;
+export default function RawMaterials() {
+  const materials = [
+    { id: 1, name: "Sorghum", quantity: 100, unit: "bags" },
+    { id: 2, name: "Maize", quantity: 200, unit: "bags" },
+    { id: 3, name: "Soya Bean", quantity: 150, unit: "bags" },
+  ];
 
   return (
-    <div>
-      <h2>Raw Materials Table Test</h2>
-      <table border="1" cellPadding="5" cellSpacing="0">
+    <div style={{ padding: "20px" }}>
+      <h2>Raw Materials Inventory</h2>
+      <table border="1" cellPadding="8" cellSpacing="0" style={{ width: "100%" }}>
         <thead>
-          <tr>
-            <th>S/N</th>
+          <tr style={{ backgroundColor: "#f2f2f2" }}>
             <th>ID</th>
-            <th>Type</th>
-            <th>Date</th>
-            <th>Opening Qty</th>
-            <th>New Stock</th>
-            <th>Total Stock</th>
+            <th>Name</th>
+            <th>Quantity</th>
+            <th>Unit</th>
           </tr>
         </thead>
         <tbody>
-          {materials.map((m, i) => (
-            <tr key={m._id || i}>
-              <td>{i + 1}</td>
-              <td>{m._id || "N/A"}</td>
-              <td>{m.rawMaterialType || "N/A"}</td>
-              <td>{new Date(m.date).toLocaleDateString()}</td>
-              <td>{m.openingQty}</td>
-              <td>{m.newStock}</td>
-              <td>{m.totalStock}</td>
+          {materials.map((item) => (
+            <tr key={item.id}>
+              <td>{item.id}</td>
+              <td>{item.name}</td>
+              <td>{item.quantity}</td>
+              <td>{item.unit}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+}
