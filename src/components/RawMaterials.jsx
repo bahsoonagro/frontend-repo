@@ -60,19 +60,7 @@ export default function RawMaterials() {
             </tr>
           </thead>
           <tbody>
-            {filteredMaterials.map((m, i) => (
-              <tr key={m._id}>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{i + 1}</td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>
-                  {new Date(m.date).toLocaleDateString()}
-                </td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{m.openingQty}</td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{m.newStock}</td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{m.stockOut}</td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{m.totalStock}</td>
-                <td style={{ border: "1px solid #000", padding: "6px" }}>{m.balance}</td>
-              </tr>
-            ))}
+    
           </tbody>
         </table>
       </Paper>
