@@ -29,9 +29,9 @@ export default function RawMaterials() {
     supervisor: "",
   });
   const [editId, setEditId] = useState(null);
+  const [step, setStep] = useState(1);
   const printRef = useRef();
 
-  // Fetch all materials
   useEffect(() => {
     fetchMaterials();
   }, []);
@@ -60,22 +60,19 @@ export default function RawMaterials() {
     });
   };
 
+  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
+  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
+
   const handleSaveMaterial = async () => {
     try {
       const payload = {
         rawMaterialType: RAW_MATERIALS_TABS[currentTab],
-        date: formData.date,
+        ...formData,
         openingQty: Number(formData.openingQty || 0),
         newStock: Number(formData.newStock || 0),
         stockOut: Number(formData.stockOut || 0),
         totalStock: Number(formData.totalStock || 0),
         balance: Number(formData.balance || 0),
-        requisitionNumber: formData.requisitionNumber,
-        remarks: formData.remarks,
-        location: formData.location,
-        batchNumber: formData.batchNumber,
-        storeKeeper: formData.storeKeeper,
-        supervisor: formData.supervisor,
       };
 
       let res;
@@ -88,7 +85,7 @@ export default function RawMaterials() {
         setMaterials((prev) => [...prev, res.data]);
       }
 
-      // Reset form
+      // Reset form and step
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -103,6 +100,7 @@ export default function RawMaterials() {
         storeKeeper: "",
         supervisor: "",
       });
+      setStep(1);
     } catch (err) {
       console.error(err.response?.data || err.message);
       alert("Error saving material.");
@@ -125,6 +123,7 @@ export default function RawMaterials() {
       supervisor: m.supervisor,
     });
     setEditId(m._id);
+    setStep(1);
   };
 
   const handleDelete = async (id) => {
@@ -154,7 +153,6 @@ export default function RawMaterials() {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
       <Box display="flex" alignItems="center" mb={3} gap={1}>
         <Inventory sx={{ fontSize: 32, color: "#1976d2" }} />
         <Typography variant="h4" sx={{ color: "#1976d2" }}>
@@ -176,78 +174,166 @@ export default function RawMaterials() {
         ))}
       </Box>
 
-      {/* Form */}
+      {/* Multi-step Form */}
       <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Grid container spacing={1}>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="Date"
-              name="date"
-              type="date"
-              value={formData.date}
-              onChange={handleChange}
-              fullWidth
-              size="small"
-              InputLabelProps={{ shrink: true }}
-            />
+        {step === 1 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Opening Qty"
+                name="openingQty"
+                type="number"
+                value={formData.openingQty}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="New Stock"
+                name="newStock"
+                type="number"
+                value={formData.newStock}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Stock Out"
+                name="stockOut"
+                type="number"
+                value={formData.stockOut}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Total Stock"
+                value={formData.totalStock}
+                fullWidth
+                size="small"
+                InputProps={{ readOnly: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                label="Balance"
+                value={formData.balance}
+                fullWidth
+                size="small"
+                InputProps={{ readOnly: true }}
+              />
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="flex-end">
+              <Button variant="contained" size="small" onClick={handleNext}>
+                Next →
+              </Button>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="Opening Qty"
-              name="openingQty"
-              type="number"
-              value={formData.openingQty}
-              onChange={handleChange}
-              fullWidth
-              size="small"
-            />
+        )}
+
+        {step === 2 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Requisition Number"
+                name="requisitionNumber"
+                value={formData.requisitionNumber}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Remarks"
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                label="Batch Number"
+                name="batchNumber"
+                value={formData.batchNumber}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between">
+              <Button variant="outlined" size="small" onClick={handlePrev}>
+                ← Back
+              </Button>
+              <Button variant="contained" size="small" onClick={handleNext}>
+                Next →
+              </Button>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="New Stock"
-              name="newStock"
-              type="number"
-              value={formData.newStock}
-              onChange={handleChange}
-              fullWidth
-              size="small"
-            />
+        )}
+
+        {step === 3 && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Store Keeper"
+                name="storeKeeper"
+                value={formData.storeKeeper}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Supervisor"
+                name="supervisor"
+                value={formData.supervisor}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+              />
+            </Grid>
+            <Grid item xs={12} display="flex" justifyContent="space-between">
+              <Button variant="outlined" size="small" onClick={handlePrev}>
+                ← Back
+              </Button>
+              <Button variant="contained" size="small" onClick={handleSaveMaterial}>
+                {editId ? "Update" : "Save"}
+              </Button>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="Stock Out"
-              name="stockOut"
-              type="number"
-              value={formData.stockOut}
-              onChange={handleChange}
-              fullWidth
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="Total Stock"
-              value={formData.totalStock}
-              fullWidth
-              size="small"
-              InputProps={{ readOnly: true }}
-            />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              label="Balance"
-              value={formData.balance}
-              fullWidth
-              size="small"
-              InputProps={{ readOnly: true }}
-            />
-          </Grid>
-          <Grid item xs={12} display="flex" justifyContent="flex-end">
-            <Button variant="contained" size="small" onClick={handleSaveMaterial}>
-              {editId ? "Update" : "Save"}
-            </Button>
-          </Grid>
-        </Grid>
+        )}
       </Paper>
 
       {/* Table */}
