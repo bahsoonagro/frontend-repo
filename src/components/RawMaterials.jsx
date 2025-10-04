@@ -52,8 +52,7 @@ export default function RawMaterials() {
     const { name, value } = e.target;
     setFormData((prev) => {
       const updated = { ...prev, [name]: value };
-      // Auto-calc totalStock and balance in Step 1
-      if (name === "openingQty" || name === "newStock" || name === "stockOut") {
+      if (["openingQty", "newStock", "stockOut"].includes(name)) {
         const opening = Number(updated.openingQty || 0);
         const newS = Number(updated.newStock || 0);
         const out = Number(updated.stockOut || 0);
@@ -85,16 +84,17 @@ export default function RawMaterials() {
         supervisor: formData.supervisor,
       };
 
-      let res;
       if (editId) {
-        res = await axios.put(`${API_URL}/${editId}`, payload);
-        setMaterials(materials.map((m) => (m._id === editId ? res.data : m)));
+        await axios.put(`${API_URL}/${editId}`, payload);
         setEditId(null);
       } else {
-        res = await axios.post(API_URL, payload);
-        setMaterials([...materials, res.data]);
+        await axios.post(API_URL, payload);
       }
 
+      // Always re-fetch materials to refresh table
+      await fetchMaterials();
+
+      // Reset form
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -133,12 +133,16 @@ export default function RawMaterials() {
     });
     setEditId(m._id);
     setStep(1);
+    // Switch tab if the material belongs to another type
+    const tabIndex = RAW_MATERIALS_TABS.indexOf(m.rawMaterialType);
+    if (tabIndex >= 0) setCurrentTab(tabIndex);
   };
 
   const handleDelete = async (id) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      setMaterials(materials.filter((m) => m._id !== id));
+      // Refresh table after delete
+      await fetchMaterials();
     } catch (err) {
       console.error(err.response?.data || err.message);
     }
