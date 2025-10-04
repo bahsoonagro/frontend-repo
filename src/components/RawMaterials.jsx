@@ -1,4 +1,3 @@
-// src/components/RawMaterials.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Button, Grid, TextField, Paper, Typography, IconButton } from "@mui/material";
 import { Delete, Edit, Print, Inventory } from "@mui/icons-material";
@@ -35,10 +34,7 @@ export default function RawMaterials() {
   const [editId, setEditId] = useState(null);
   const printRef = useRef();
 
-  useEffect(() => {
-    fetchMaterials();
-  }, []);
-
+  // Fetch all materials from backend
   const fetchMaterials = async () => {
     try {
       const res = await axios.get(API_URL);
@@ -47,6 +43,11 @@ export default function RawMaterials() {
       console.error(err.response?.data || err.message);
     }
   };
+
+  // Auto-fetch on mount and tab change
+  useEffect(() => {
+    fetchMaterials();
+  }, [currentTab]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,14 +87,19 @@ export default function RawMaterials() {
 
       let res;
       if (editId) {
+        // PUT request for update
         res = await axios.put(`${API_URL}/${editId}`, payload);
-        setMaterials((prev) => prev.map((m) => (m._id === editId ? res.data : m)));
+        setMaterials((prev) =>
+          prev.map((m) => (m._id === editId ? res.data : m))
+        );
         setEditId(null);
       } else {
+        // POST request for new
         res = await axios.post(API_URL, payload);
-        setMaterials((prev) => [...prev, res.data]); // instant update
+        setMaterials((prev) => [...prev, res.data]);
       }
 
+      // Reset form
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -143,6 +149,10 @@ export default function RawMaterials() {
     }
   };
 
+  const filteredMaterials = materials.filter(
+    (m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]
+  );
+
   const calculateTotals = (filtered) => ({
     openingQty: filtered.reduce((acc, m) => acc + Number(m.openingQty || 0), 0),
     newStock: filtered.reduce((acc, m) => acc + Number(m.newStock || 0), 0),
@@ -151,9 +161,6 @@ export default function RawMaterials() {
     balance: filtered.reduce((acc, m) => acc + Number(m.balance || 0), 0),
   });
 
-  const filteredMaterials = materials.filter(
-    (m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]
-  );
   const totals = calculateTotals(filteredMaterials);
 
   // --- Print & Export ---
@@ -258,6 +265,7 @@ export default function RawMaterials() {
 
       {/* Multi-step Form */}
       <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+        {/* Step 1 */}
         {step === 1 && (
           <Grid container spacing={1}>
             <Grid item xs={12} md={2}>
@@ -331,6 +339,7 @@ export default function RawMaterials() {
           </Grid>
         )}
 
+        {/* Step 2 */}
         {step === 2 && (
           <Grid container spacing={1}>
             <Grid item xs={12} md={3}>
@@ -384,6 +393,7 @@ export default function RawMaterials() {
           </Grid>
         )}
 
+        {/* Step 3 */}
         {step === 3 && (
           <Grid container spacing={1}>
             <Grid item xs={12} md={6}>
@@ -489,11 +499,10 @@ export default function RawMaterials() {
                     </td>
                   </motion.tr>
                 ))}
+
                 {/* Totals Row */}
                 <tr style={{ fontWeight: "bold", backgroundColor: "#f0f0f0" }}>
-                  <td style={tdStyle} colSpan={2}>
-                    Totals
-                  </td>
+                  <td style={tdStyle} colSpan={2}>Totals</td>
                   <td style={tdStyle}>{totals.openingQty}</td>
                   <td style={tdStyle}>{totals.newStock}</td>
                   <td style={tdStyle}>{totals.totalStock}</td>
