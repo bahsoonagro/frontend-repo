@@ -1,7 +1,6 @@
-// src/components/RawMaterials.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Box, Button, Grid, TextField, Paper, Typography, IconButton } from "@mui/material";
-import { Delete, Edit, Inventory } from "@mui/icons-material";
+import { Delete, Edit, Print, Inventory } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
@@ -29,7 +28,6 @@ export default function RawMaterials() {
     supervisor: "",
   });
   const [editId, setEditId] = useState(null);
-  const [step, setStep] = useState(1);
   const printRef = useRef();
 
   useEffect(() => {
@@ -60,9 +58,6 @@ export default function RawMaterials() {
     });
   };
 
-  const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
-  const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
-
   const handleSaveMaterial = async () => {
     try {
       const payload = {
@@ -85,7 +80,6 @@ export default function RawMaterials() {
         setMaterials((prev) => [...prev, res.data]);
       }
 
-      // Reset form and step
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -100,10 +94,9 @@ export default function RawMaterials() {
         storeKeeper: "",
         supervisor: "",
       });
-      setStep(1);
     } catch (err) {
       console.error(err.response?.data || err.message);
-      alert("Error saving material.");
+      alert("Error saving material. Check required fields.");
     }
   };
 
@@ -123,7 +116,6 @@ export default function RawMaterials() {
       supervisor: m.supervisor,
     });
     setEditId(m._id);
-    setStep(1);
   };
 
   const handleDelete = async (id) => {
@@ -135,31 +127,16 @@ export default function RawMaterials() {
     }
   };
 
+  // Filter materials by tab
   const filteredMaterials = materials.filter(
     (m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]
   );
 
-  const totals = filteredMaterials.reduce(
-    (acc, m) => {
-      acc.openingQty += Number(m.openingQty || 0);
-      acc.newStock += Number(m.newStock || 0);
-      acc.totalStock += Number(m.totalStock || 0);
-      acc.stockOut += Number(m.stockOut || 0);
-      acc.balance += Number(m.balance || 0);
-      return acc;
-    },
-    { openingQty: 0, newStock: 0, totalStock: 0, stockOut: 0, balance: 0 }
-  );
+  // fallback in case filtering fails
+  const displayMaterials = filteredMaterials.length > 0 ? filteredMaterials : [];
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box display="flex" alignItems="center" mb={3} gap={1}>
-        <Inventory sx={{ fontSize: 32, color: "#1976d2" }} />
-        <Typography variant="h4" sx={{ color: "#1976d2" }}>
-          Raw Materials Management
-        </Typography>
-      </Box>
-
       {/* Tabs */}
       <Box sx={{ mb: 3 }}>
         {RAW_MATERIALS_TABS.map((tab, i) => (
@@ -174,227 +151,125 @@ export default function RawMaterials() {
         ))}
       </Box>
 
-      {/* Multi-step Form */}
-      <Paper elevation={6} sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        {step === 1 && (
-          <Grid container spacing={1}>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="Date"
-                name="date"
-                type="date"
-                value={formData.date}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="Opening Qty"
-                name="openingQty"
-                type="number"
-                value={formData.openingQty}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="New Stock"
-                name="newStock"
-                type="number"
-                value={formData.newStock}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="Stock Out"
-                name="stockOut"
-                type="number"
-                value={formData.stockOut}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="Total Stock"
-                value={formData.totalStock}
-                fullWidth
-                size="small"
-                InputProps={{ readOnly: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                label="Balance"
-                value={formData.balance}
-                fullWidth
-                size="small"
-                InputProps={{ readOnly: true }}
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="flex-end">
-              <Button variant="contained" size="small" onClick={handleNext}>
-                Next →
-              </Button>
-            </Grid>
+      {/* Simple Form */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={1}>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Date"
+              name="date"
+              type="date"
+              value={formData.date}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputLabelProps={{ shrink: true }}
+            />
           </Grid>
-        )}
-
-        {step === 2 && (
-          <Grid container spacing={1}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Requisition Number"
-                name="requisitionNumber"
-                value={formData.requisitionNumber}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Remarks"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                label="Batch Number"
-                name="batchNumber"
-                value={formData.batchNumber}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="space-between">
-              <Button variant="outlined" size="small" onClick={handlePrev}>
-                ← Back
-              </Button>
-              <Button variant="contained" size="small" onClick={handleNext}>
-                Next →
-              </Button>
-            </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Opening Qty"
+              name="openingQty"
+              type="number"
+              value={formData.openingQty}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+            />
           </Grid>
-        )}
-
-        {step === 3 && (
-          <Grid container spacing={1}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Store Keeper"
-                name="storeKeeper"
-                value={formData.storeKeeper}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Supervisor"
-                name="supervisor"
-                value={formData.supervisor}
-                onChange={handleChange}
-                fullWidth
-                size="small"
-              />
-            </Grid>
-            <Grid item xs={12} display="flex" justifyContent="space-between">
-              <Button variant="outlined" size="small" onClick={handlePrev}>
-                ← Back
-              </Button>
-              <Button variant="contained" size="small" onClick={handleSaveMaterial}>
-                {editId ? "Update" : "Save"}
-              </Button>
-            </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="New Stock"
+              name="newStock"
+              type="number"
+              value={formData.newStock}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+            />
           </Grid>
-        )}
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Stock Out"
+              name="stockOut"
+              type="number"
+              value={formData.stockOut}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Total Stock"
+              value={formData.totalStock}
+              fullWidth
+              size="small"
+              InputProps={{ readOnly: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              label="Balance"
+              value={formData.balance}
+              fullWidth
+              size="small"
+              InputProps={{ readOnly: true }}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Button variant="contained" onClick={handleSaveMaterial}>
+              {editId ? "Update" : "Save"}
+            </Button>
+          </Grid>
+        </Grid>
       </Paper>
 
       {/* Table */}
-      <Box ref={printRef}>
-        <Paper elevation={6} sx={{ borderRadius: 3, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
-              <tr>
-                <th style={thStyle}>S/N</th>
-                <th style={thStyle}>Date</th>
-                <th style={thStyle}>Opening Qty</th>
-                <th style={thStyle}>New Stock</th>
-                <th style={thStyle}>Total Stock</th>
-                <th style={thStyle}>Stock Out</th>
-                <th style={thStyle}>Balance</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <AnimatePresence>
-                {filteredMaterials.map((m, i) => (
-                  <motion.tr
-                    key={m._id}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
-                    <td style={tdStyle}>{m.openingQty}</td>
-                    <td style={tdStyle}>{m.newStock}</td>
-                    <td style={tdStyle}>{m.totalStock}</td>
-                    <td style={tdStyle}>{m.stockOut}</td>
-                    <td style={tdStyle}>{m.balance}</td>
-                    <td style={tdStyle}>
-                      <IconButton color="primary" size="small" onClick={() => handleEdit(m)}>
-                        <Edit />
-                      </IconButton>
-                      <IconButton color="error" size="small" onClick={() => handleDelete(m._id)}>
-                        <Delete />
-                      </IconButton>
-                    </td>
-                  </motion.tr>
-                ))}
-                <tr style={{ fontWeight: "bold", backgroundColor: "#f0f0f0" }}>
-                  <td style={tdStyle} colSpan={2}>
-                    Totals
+      <Paper sx={{ p: 2, borderRadius: 2 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
+            <tr>
+              <th style={thStyle}>S/N</th>
+              <th style={thStyle}>Date</th>
+              <th style={thStyle}>Opening Qty</th>
+              <th style={thStyle}>New Stock</th>
+              <th style={thStyle}>Total Stock</th>
+              <th style={thStyle}>Stock Out</th>
+              <th style={thStyle}>Balance</th>
+              <th style={thStyle}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <AnimatePresence>
+              {displayMaterials.map((m, i) => (
+                <motion.tr
+                  key={m._id}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <td style={tdStyle}>{i + 1}</td>
+                  <td style={tdStyle}>{new Date(m.date).toLocaleDateString()}</td>
+                  <td style={tdStyle}>{m.openingQty}</td>
+                  <td style={tdStyle}>{m.newStock}</td>
+                  <td style={tdStyle}>{m.totalStock}</td>
+                  <td style={tdStyle}>{m.stockOut}</td>
+                  <td style={tdStyle}>{m.balance}</td>
+                  <td style={tdStyle}>
+                    <IconButton size="small" onClick={() => handleEdit(m)}>
+                      <Edit />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => handleDelete(m._id)}>
+                      <Delete />
+                    </IconButton>
                   </td>
-                  <td style={tdStyle}>{totals.openingQty}</td>
-                  <td style={tdStyle}>{totals.newStock}</td>
-                  <td style={tdStyle}>{totals.totalStock}</td>
-                  <td style={tdStyle}>{totals.stockOut}</td>
-                  <td style={tdStyle}>{totals.balance}</td>
-                  <td style={tdStyle}></td>
-                </tr>
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </Paper>
-      </Box>
+                </motion.tr>
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </Paper>
     </Box>
   );
 }
