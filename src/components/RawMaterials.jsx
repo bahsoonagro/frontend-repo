@@ -50,6 +50,7 @@ export default function RawMaterials() {
   const fetchMaterials = async () => {
     try {
       const res = await axios.get(API_URL);
+      console.log("Fetched materials:", res.data);
       setMaterials(res.data);
     } catch (err) {
       console.error(err.response?.data || err.message);
@@ -77,7 +78,6 @@ export default function RawMaterials() {
   const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const handleSaveMaterial = async () => {
-    // Ensure required fields are filled
     const requiredFields = ["storeKeeper", "supervisor", "batchNumber", "location"];
     for (const field of requiredFields) {
       if (!formData[field]) {
@@ -115,7 +115,6 @@ export default function RawMaterials() {
         setMaterials((prev) => [...prev, res.data]);
       }
 
-      // Reset form
       setFormData({
         date: new Date().toISOString().substring(0, 10),
         openingQty: "",
@@ -153,11 +152,14 @@ export default function RawMaterials() {
     }
   };
 
-  // --- Calculate totals ---
+  // --- Filter by tab (normalized) ---
   const filteredMaterials = materials.filter(
-    (m) => m.rawMaterialType === RAW_MATERIALS_TABS[currentTab]
+    (m) =>
+      m.rawMaterialType?.trim().toLowerCase() ===
+      RAW_MATERIALS_TABS[currentTab].trim().toLowerCase()
   );
 
+  // --- Calculate totals ---
   const totals = filteredMaterials.reduce(
     (acc, m) => {
       acc.openingQty += Number(m.openingQty || 0);
@@ -200,7 +202,7 @@ export default function RawMaterials() {
       }))
     );
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(ws, wb, "RawMaterials");
+    XLSX.utils.book_append_sheet(wb, ws, "RawMaterials");
     XLSX.writeFile(wb, "RawMaterials.xlsx");
   };
 
@@ -482,18 +484,10 @@ export default function RawMaterials() {
                   <td style={tdStyle}>{m.supervisor}</td>
                   <td style={tdStyle}>{m.batchNumber}</td>
                   <td style={tdStyle}>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleEdit(m)}
-                    >
+                    <IconButton size="small" color="primary" onClick={() => handleEdit(m)}>
                       <Edit />
                     </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(m._id)}
-                    >
+                    <IconButton size="small" color="error" onClick={() => handleDelete(m._id)}>
                       <Delete />
                     </IconButton>
                   </td>
