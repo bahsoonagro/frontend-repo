@@ -14,7 +14,7 @@ const API_URL = "https://backend-repo-ydwt.onrender.com/api/finished-products";
 
 const FINISHED_PRODUCTS_TABS = [
   { label: "Bennimix", products: ["Bennimix 400g", "Bennimix 50g"] },
-  { label: "Pikinmix", products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"] },
+  { label: "Pikinmix", products: ["Pikinmix 500g", "Pikinmix 1kg", "Pikinmix 1.5kg", "Pikinmix 2kg", "Pikinmix 4kg", "Pikinmix 5kg"] },
   { label: "Supermix", products: ["Supermix 50g"] }
 ];
 
