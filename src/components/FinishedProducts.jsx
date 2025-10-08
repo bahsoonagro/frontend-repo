@@ -35,7 +35,7 @@ export default function FinishedProducts() {
     remarks: "",
   });
   const [products, setProducts] = useState([]);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortConfig, setSortConfig] = useState([]);
   const printRef = useRef();
 
   useEffect(() => {
@@ -128,7 +128,7 @@ export default function FinishedProducts() {
   };
 
   const exportExcel = () => {
-    const filtered = filteredProducts();
+    const filtered = getSortedProducts();
     const ws = XLSX.utils.json_to_sheet(filtered.map(p => ({
       "Date": new Date(p.date).toLocaleDateString(),
       "Batch Number": p.batchNumber,
@@ -146,7 +146,7 @@ export default function FinishedProducts() {
   };
 
   const exportPDF = () => {
-    const filtered = filteredProducts();
+    const filtered = getSortedProducts();
     const doc = new jsPDF();
     doc.text(`${FINISHED_PRODUCTS_TABS[currentTab].label} - Finished Products`, 14, 15);
     doc.autoTable({
@@ -183,44 +183,51 @@ export default function FinishedProducts() {
   };
 
   const filteredProducts = () => {
-    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
-    if (!sortConfig.key) return filtered;
+    return products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+  };
+
+  const getSortedProducts = () => {
+    const filtered = filteredProducts();
+    if (!sortConfig.length) return filtered;
 
     return [...filtered].sort((a, b) => {
-      const key = sortConfig.key;
-      let valA = a[key];
-      let valB = b[key];
+      for (const { key, direction } of sortConfig) {
+        let valA = a[key];
+        let valB = b[key];
 
-      // Correctly handle date, number, and string columns
-      if (key === "date") {
-        valA = new Date(valA);
-        valB = new Date(valB);
-      } else if (["openingQty","newStock","totalStock","qtyOut","balance"].includes(key)) {
-        valA = parseFloat(valA) || 0;
-        valB = parseFloat(valB) || 0;
-      } else {
-        valA = valA ? valA.toString().toLowerCase() : "";
-        valB = valB ? valB.toString().toLowerCase() : "";
+        if (key === "date") {
+          valA = new Date(valA);
+          valB = new Date(valB);
+        } else if (["openingQty","newStock","totalStock","qtyOut","balance"].includes(key)) {
+          valA = parseFloat(valA) || 0;
+          valB = parseFloat(valB) || 0;
+        } else {
+          valA = valA ? valA.toString().toLowerCase() : "";
+          valB = valB ? valB.toString().toLowerCase() : "";
+        }
+
+        if (valA < valB) return direction === "asc" ? -1 : 1;
+        if (valA > valB) return direction === "asc" ? 1 : -1;
       }
-
-      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
   };
 
   const handleSort = (key) => {
     setSortConfig(prev => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      const existing = prev.find(s => s.key === key);
+      if (existing) {
+        const newDir = existing.direction === "asc" ? "desc" : "asc";
+        return prev.map(s => s.key === key ? { key, direction: newDir } : s);
       }
-      return { key, direction: "asc" };
+      return [{ key, direction: "asc" }, ...prev];
     });
   };
 
   const renderSortIcon = (key) => {
-    if (sortConfig.key !== key) return null;
-    return sortConfig.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
+    const sortObj = sortConfig.find(s => s.key === key);
+    if (!sortObj) return null;
+    return sortObj.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
   };
 
   return (
@@ -310,7 +317,7 @@ export default function FinishedProducts() {
             </thead>
             <tbody>
               <AnimatePresence>
-                {filteredProducts().map((prod) => (
+                {getSortedProducts().map((prod) => (
                   <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <td style={tdStyle}>{prod.batchNumber}</td>
                     <td style={tdStyle}>{new Date(prod.date).toLocaleDateString()}</td>
@@ -330,7 +337,7 @@ export default function FinishedProducts() {
                     </td>
                   </motion.tr>
                 ))}
-                {filteredProducts().length === 0 && (
+                {getSortedProducts().length === 0 && (
                   <tr>
                     <td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>No finished products found.</td>
                   </tr>
