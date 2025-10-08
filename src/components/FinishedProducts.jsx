@@ -285,20 +285,21 @@ export default function FinishedProducts() {
       <Box ref={printRef}>
         <Paper elevation={3} sx={{ borderRadius: 3, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={thStyle} onClick={() => handleSort("batchNumber")}>Batch Number {renderSortIcon("batchNumber")}</th>
-                <th style={thStyle} onClick={() => handleSort("date")}>Date {renderSortIcon("date")}</th>
-                <th style={thStyle} onClick={() => handleSort("productName")}>Product Name {renderSortIcon("productName")}</th>
-                <th style={thStyle} onClick={() => handleSort("openingQty")}>Opening Qty {renderSortIcon("openingQty")}</th>
-                <th style={thStyle} onClick={() => handleSort("newStock")}>New Stock {renderSortIcon("newStock")}</th>
-                <th style={thStyle} onClick={() => handleSort("totalStock")}>Total Stock {renderSortIcon("totalStock")}</th>
-                <th style={thStyle} onClick={() => handleSort("qtyOut")}>Qty Out {renderSortIcon("qtyOut")}</th>
-                <th style={thStyle} onClick={() => handleSort("balance")}>Balance {renderSortIcon("balance")}</th>
-                <th style={thStyle} onClick={() => handleSort("remarks")}>Remarks {renderSortIcon("remarks")}</th>
-                <th style={thStyle}>Actions</th>
-              </tr>
-            </thead>
+           <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
+  <tr>
+    <th style={thStyle} onClick={() => handleSort("batchNumber")}>Batch Number {renderSortIcon("batchNumber")}</th>
+    <th style={thStyle} onClick={() => handleSort("date")}>Date {renderSortIcon("date")}</th>
+    <th style={thStyle} onClick={() => handleSort("productName")}>Product Name {renderSortIcon("productName")}</th>
+    <th style={thStyle} onClick={() => handleSort("openingQty")}>Opening Qty {renderSortIcon("openingQty")}</th>
+    <th style={thStyle} onClick={() => handleSort("newStock")}>New Stock {renderSortIcon("newStock")}</th>
+    <th style={thStyle} onClick={() => handleSort("totalStock")}>Total Stock {renderSortIcon("totalStock")}</th>
+    <th style={thStyle} onClick={() => handleSort("qtyOut")}>Qty Out {renderSortIcon("qtyOut")}</th>
+    <th style={thStyle} onClick={() => handleSort("balance")}>Balance {renderSortIcon("balance")}</th>
+    <th style={thStyle} onClick={() => handleSort("remarks")}>Remarks {renderSortIcon("remarks")}</th>
+    <th style={thStyle}>Actions</th>
+  </tr>
+</thead>
+
             <tbody>
               <AnimatePresence>
                 {filteredProducts.map((prod) => (
