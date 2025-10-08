@@ -4,7 +4,7 @@ import {
   Box, Button, Grid, TextField, Select, MenuItem,
   InputLabel, FormControl, Paper, Typography, IconButton, Tabs, Tab, Tooltip
 } from "@mui/material";
-import { Delete, Print, FileDownload } from "@mui/icons-material";
+import { Delete, Print, FileDownload, ArrowUpward, ArrowDownward } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -18,7 +18,7 @@ const FINISHED_PRODUCTS_TABS = [
   { label: "Supermix", products: ["Supermix 50g"] }
 ];
 
-const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
+const thStyle = { padding: "6px", border: "1px solid #000", textAlign: "center", cursor: "pointer" };
 const tdStyle = { padding: "6px", border: "1px solid #000", textAlign: "center" };
 
 export default function FinishedProducts() {
@@ -35,9 +35,13 @@ export default function FinishedProducts() {
     remarks: "",
   });
   const [products, setProducts] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const printRef = useRef();
 
-  // Fetch all finished products
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
   const fetchProducts = async () => {
     try {
       const res = await fetch(API_URL);
@@ -48,29 +52,19 @@ export default function FinishedProducts() {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  // Handle form changes and auto-calculate totalStock & balance
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => {
-      let updated = { ...prev, [name]: value };
-
-      // Convert numeric fields to numbers for calculation
+      const updated = { ...prev, [name]: value };
       const opening = parseFloat(updated.openingQty) || 0;
       const newS = parseFloat(updated.newStock) || 0;
       const qtyOut = parseFloat(updated.qtyOut) || 0;
-
       updated.totalStock = opening + newS;
       updated.balance = updated.totalStock - qtyOut;
-
       return updated;
     });
   };
 
-  // Save product
   const handleSave = async () => {
     const requiredFields = ["productName", "batchNumber", "productionDate"];
     for (let field of requiredFields) {
@@ -78,15 +72,14 @@ export default function FinishedProducts() {
     }
 
     try {
-      // Optional: calculate month and week
       const prodDate = new Date(formData.productionDate);
       const month = prodDate.toLocaleString("default", { month: "long" });
-      const week = Math.ceil(prodDate.getDate() / 7); // simple week number in month
+      const week = Math.ceil(prodDate.getDate() / 7);
 
       const payload = {
         productName: formData.productName,
         batchNumber: formData.batchNumber,
-        date: formData.productionDate, // <-- required by backend
+        date: formData.productionDate,
         openingQty: parseFloat(formData.openingQty) || 0,
         newStock: parseFloat(formData.newStock) || 0,
         totalStock: parseFloat(formData.totalStock) || 0,
@@ -125,7 +118,6 @@ export default function FinishedProducts() {
     }
   };
 
-  // Delete product
   const handleDelete = async (id) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
@@ -135,9 +127,8 @@ export default function FinishedProducts() {
     }
   };
 
-  // Export Excel
   const exportExcel = () => {
-    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+    const filtered = filteredProducts();
     const ws = XLSX.utils.json_to_sheet(filtered.map(p => ({
       "Date": new Date(p.date).toLocaleDateString(),
       "Batch Number": p.batchNumber,
@@ -154,9 +145,8 @@ export default function FinishedProducts() {
     XLSX.writeFile(wb, "FinishedProducts.xlsx");
   };
 
-  // Export PDF
   const exportPDF = () => {
-    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+    const filtered = filteredProducts();
     const doc = new jsPDF();
     doc.text(`${FINISHED_PRODUCTS_TABS[currentTab].label} - Finished Products`, 14, 15);
     doc.autoTable({
@@ -179,12 +169,11 @@ export default function FinishedProducts() {
     doc.save("FinishedProducts.pdf");
   };
 
-  // Print table
   const handlePrint = () => {
     const printContent = printRef.current.innerHTML;
     const WinPrint = window.open("", "", "width=900,height=650");
     WinPrint.document.write("<html><head><title>Finished Products</title>");
-    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;}</style>");
+    WinPrint.document.write("<style>table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:5px;text-align:center;}th{background-color:#1976d2;color:#fff;cursor:pointer;}</style>");
     WinPrint.document.write("</head><body>");
     WinPrint.document.write(printContent);
     WinPrint.document.write("</body></html>");
@@ -193,7 +182,46 @@ export default function FinishedProducts() {
     WinPrint.print();
   };
 
-  const filteredProducts = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+  const filteredProducts = () => {
+    const filtered = products.filter(p => FINISHED_PRODUCTS_TABS[currentTab].products.includes(p.productName));
+    if (!sortConfig.key) return filtered;
+
+    return [...filtered].sort((a, b) => {
+      const key = sortConfig.key;
+      let valA = a[key];
+      let valB = b[key];
+
+      // Correctly handle date, number, and string columns
+      if (key === "date") {
+        valA = new Date(valA);
+        valB = new Date(valB);
+      } else if (["openingQty","newStock","totalStock","qtyOut","balance"].includes(key)) {
+        valA = parseFloat(valA) || 0;
+        valB = parseFloat(valB) || 0;
+      } else {
+        valA = valA ? valA.toString().toLowerCase() : "";
+        valB = valB ? valB.toString().toLowerCase() : "";
+      }
+
+      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -268,21 +296,21 @@ export default function FinishedProducts() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ backgroundColor: "#1976d2", color: "#fff" }}>
               <tr>
-                <th style={thStyle}>Batch Number</th>
-                <th style={thStyle}>Date</th>
-                <th style={thStyle}>Product Name</th>
-                <th style={thStyle}>Opening Qty</th>
-                <th style={thStyle}>New Stock</th>
-                <th style={thStyle}>Total Stock</th>
-                <th style={thStyle}>Qty Out</th>
-                <th style={thStyle}>Balance</th>
-                <th style={thStyle}>Remarks</th>
+                <th style={thStyle} onClick={() => handleSort("batchNumber")}>Batch Number {renderSortIcon("batchNumber")}</th>
+                <th style={thStyle} onClick={() => handleSort("date")}>Date {renderSortIcon("date")}</th>
+                <th style={thStyle} onClick={() => handleSort("productName")}>Product Name {renderSortIcon("productName")}</th>
+                <th style={thStyle} onClick={() => handleSort("openingQty")}>Opening Qty {renderSortIcon("openingQty")}</th>
+                <th style={thStyle} onClick={() => handleSort("newStock")}>New Stock {renderSortIcon("newStock")}</th>
+                <th style={thStyle} onClick={() => handleSort("totalStock")}>Total Stock {renderSortIcon("totalStock")}</th>
+                <th style={thStyle} onClick={() => handleSort("qtyOut")}>Qty Out {renderSortIcon("qtyOut")}</th>
+                <th style={thStyle} onClick={() => handleSort("balance")}>Balance {renderSortIcon("balance")}</th>
+                <th style={thStyle} onClick={() => handleSort("remarks")}>Remarks {renderSortIcon("remarks")}</th>
                 <th style={thStyle}>Actions</th>
               </tr>
             </thead>
             <tbody>
               <AnimatePresence>
-                {filteredProducts.map((prod) => (
+                {filteredProducts().map((prod) => (
                   <motion.tr key={prod._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                     <td style={tdStyle}>{prod.batchNumber}</td>
                     <td style={tdStyle}>{new Date(prod.date).toLocaleDateString()}</td>
@@ -302,7 +330,7 @@ export default function FinishedProducts() {
                     </td>
                   </motion.tr>
                 ))}
-                {filteredProducts.length === 0 && (
+                {filteredProducts().length === 0 && (
                   <tr>
                     <td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>No finished products found.</td>
                   </tr>
